@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Natural Resonance 2026 Film Festival</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  </head>
+  <body data-page="landing" class="phase-landing">
+    <canvas id="webgl" aria-label="3D forest scene"></canvas>
+
+    <!-- Persistent Top Menu Bar -->
+    <header class="top-bar">
+      <div class="top-bar-logo"><img src="/nr-logo.png" alt="Natural Resonance"></div>
+      <div class="top-bar-center">
+        <!-- Default: Livestream Countdown -->
+        <div class="center-content center-countdown is-active" data-scene="default">
+          <div class="center-label">Livestream<br>Countdown</div>
+          <div class="countdown-time" id="countdown-timer">12:46:24</div>
+        </div>
+        <!-- Tree scene: Exhibition -->
+        <div class="center-content center-exhibition" data-scene="front">
+          <div class="center-title">Exhibition</div>
+        </div>
+        <!-- Cube scene (left): Panel Talk -->
+        <div class="center-content center-panel" data-scene="left">
+          <div class="center-title">Panel Talk</div>
+        </div>
+        <!-- Sphere scene (right): Livestream -->
+        <div class="center-content center-sphere" data-scene="right">
+          <div class="center-title">Livestream</div>
+        </div>
+      </div>
+      <nav class="top-bar-nav">
+        <a href="#" class="nav-link">About Us</a>
+        <a href="#" class="nav-link">Schedule</a>
+      </nav>
+    </header>
+
+    <!-- Landing Page -->
+    <div class="landing-page">
+      <main class="landing-main">
+        <p class="landing-eyebrow">VISION FOR TOMORROW</p>
+        <h1 class="landing-title">
+          <span>Natural Resonance</span>
+          <span>2026 Film Festival</span>
+        </h1>
+        <p class="landing-description">
+          Natural Resonance is a festival of creativity inspired by nature.
+          Through vibrant music, visual art, movement, and thoughtful
+          discourse, we celebrate our love of the natural world, the
+          creativity of Earth's ecosystems, and the ingenuity of artists.
+        </p>
+        <div class="landing-buttons">
+          <div class="ticket-input-wrapper">
+            <input type="text" class="ticket-input" id="ticket-code-input" placeholder="TICKET CODE" maxlength="10" autocomplete="off" spellcheck="false">
+            <span class="ticket-status" id="ticket-status"></span>
+          </div>
+          <button class="btn btn-primary" id="enter-btn" disabled>ENTER <span class="arrow">↗</span></button>
+        </div>
+      </main>
+
+      <div class="landing-scroll-indicator">
+        <span></span>
+      </div>
+    </div>
+
+    <!-- Main Experience UI -->
+    <div id="ui">
+      <!-- Forest center scroll hint -->
+      <div class="forest-hint" id="forest-hint">
+        <div class="hint-row">
+          <span class="hint-icon scroll-icon">
+            <svg width="14" height="28" viewBox="0 0 14 28" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path class="arrow-up" d="M3 7 L7 2 L11 7"/>
+              <rect x="3" y="10" width="8" height="14" rx="4"/>
+              <line x1="7" y1="14" x2="7" y2="17"/>
+            </svg>
+          </span>
+          <span class="hint-text">Scroll to enter <span class="nav-scene-name">Exhibition</span></span>
+        </div>
+      </div>
+
+      <!-- Scene navigation arrows -->
+      <button class="nav-scene-btn nav-scene-btn-left" id="nav-arrow-left" aria-label="Go to Panel Talk">
+        <kbd class="nav-scene-key">←</kbd>
+        <span class="nav-scene-or">or drag</span>
+        <span class="nav-scene-text">to enter <span class="nav-scene-name" id="nav-arrow-left-label">Panel Talk</span></span>
+      </button>
+      <button class="nav-scene-btn nav-scene-btn-right" id="nav-arrow-right" aria-label="Go to Livestream">
+        <kbd class="nav-scene-key">→</kbd>
+        <span class="nav-scene-or">or drag</span>
+        <span class="nav-scene-text">to enter <span class="nav-scene-name" id="nav-arrow-right-label">Livestream</span></span>
+      </button>
+
+      <!-- Scene-specific instructions (Panel Talk / Livestream) -->
+      <div class="scene-hint" id="scene-hint">
+        <div class="hint-row">
+          <span class="hint-icon scroll-icon">
+            <svg width="14" height="28" viewBox="0 0 14 28" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path class="arrow-up" d="M3 7 L7 2 L11 7"/>
+              <rect x="3" y="10" width="8" height="14" rx="4"/>
+              <line x1="7" y1="14" x2="7" y2="17"/>
+            </svg>
+          </span>
+          <span class="hint-text" id="scene-hint-text">Scroll to navigate/exit <span class="nav-scene-name" id="scene-hint-name">Livestream</span></span>
+        </div>
+      </div>
+
+      <div class="sections-container">
+        <button class="back-button" aria-label="Return to forest">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"/>
+          </svg>
+          <span>Back to Forest</span>
+        </button>
+
+        <div class="section section-showcase" data-section="showcase">
+          <div class="section-content">
+            <h2 class="section-title">Special Showcase</h2>
+            <p class="section-description">
+              Discover our curated selection of extraordinary works from emerging artists 
+              around the world. This special showcase features innovative pieces that push 
+              the boundaries of visual storytelling and creative expression, highlighting 
+              unique perspectives on nature and human connection.
+            </p>
+          </div>
+        </div>
+
+        <div class="section section-exhibition" data-section="exhibition">
+          <div class="section-content">
+            <h2 class="section-title">Exhibition</h2>
+            <p class="section-description">
+              Explore our main exhibition featuring a diverse collection of films and 
+              multimedia installations. Each piece has been carefully selected to represent 
+              the festival's core themes of environmental awareness, artistic innovation, 
+              and the celebration of nature's beauty through the lens of creative vision.
+            </p>
+          </div>
+        </div>
+
+        <div class="scroll-indicator">
+          <div class="scroll-track">
+            <div class="scroll-thumb"></div>
+          </div>
+          <div class="scroll-labels">
+            <span>Exhibition</span>
+            <span>Showcase</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="loading-screen">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <p class="loading-text">Entering the forest...</p>
+      </div>
+    </div>
+
+    <div class="exit-confirmation">
+      <div class="exit-confirmation-content">
+        <p class="exit-confirmation-text">Return to the forest?</p>
+        <div class="exit-confirmation-buttons">
+          <button class="exit-btn exit-btn-yes">Yes</button>
+          <button class="exit-btn exit-btn-no">Stay</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Artwork Popup -->
+    <div class="artwork-popup" id="artwork-popup">
+      <div class="artwork-popup-content">
+        <button class="artwork-popup-close" id="artwork-popup-close" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <div class="artwork-popup-image-container">
+          <img class="artwork-popup-image" id="artwork-image" src="" alt="Artwork">
+        </div>
+        <div class="artwork-popup-info">
+          <h2 class="artwork-popup-title" id="artwork-title">Artwork Title</h2>
+          <p class="artwork-popup-artist" id="artwork-artist">By Artist Name</p>
+          <p class="artwork-popup-description" id="artwork-description">Description of the artwork.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Video Popup Player -->
+    <div class="video-popup" id="video-popup">
+      <div class="video-popup-content">
+        <button class="video-popup-close" id="video-popup-close" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <!-- Regular video player -->
+        <video class="video-popup-player" id="video-popup-player" controls>
+          <source src="" type="video/mp4">
+        </video>
+        <!-- YouTube/iframe embed container -->
+        <div class="video-popup-iframe-container" id="video-popup-iframe-container">
+          <iframe id="video-popup-iframe" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+            allowfullscreen>
+          </iframe>
+        </div>
+        <div class="video-popup-info">
+          <h3 class="video-popup-title" id="video-popup-title">Video Title</h3>
+        </div>
+      </div>
+    </div>
+
+    <!-- Showcase Entry Popup (Root section) -->
+    <div class="showcase-entry" id="showcase-entry">
+      <div class="showcase-entry-content">
+        <div class="showcase-entry-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path d="M24 8v32M14 20l10-10 10 10"/>
+            <path d="M8 8h32"/>
+            <path d="M12 24c4 8 8 12 12 16 4-4 8-8 12-16" stroke-dasharray="2 2"/>
+          </svg>
+        </div>
+        <h2 class="showcase-entry-title">Underground Roots</h2>
+        <p class="showcase-entry-description">
+          Descend into the earth and explore the hidden world beneath. 
+          Discover artworks suspended among the intricate root network, 
+          where nature's unseen connections come to light.
+        </p>
+        <button class="btn btn-primary showcase-entry-btn" id="showcase-entry-btn">Dive Underground</button>
+      </div>
+    </div>
+
+    <!-- Exhibition Entry Popup -->
+    <div class="exhibition-entry" id="exhibition-entry">
+      <div class="exhibition-entry-content">
+        <div class="exhibition-entry-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="24" cy="24" r="20"/>
+            <path d="M24 14v20M14 24h20"/>
+          </svg>
+        </div>
+        <h2 class="exhibition-entry-title">Exhibition Space</h2>
+        <p class="exhibition-entry-description">
+          Enter our immersive exhibition featuring curated artworks from visionary artists.
+          Navigate freely to explore each piece up close.
+        </p>
+        <button class="btn btn-primary exhibition-entry-btn" id="exhibition-entry-btn">Enter Exhibition</button>
+      </div>
+    </div>
+
+    <!-- Scene Welcome Popup -->
+    <div class="scene-welcome" id="scene-welcome">
+      <div class="scene-welcome-content">
+        <button class="scene-welcome-close" id="scene-welcome-close" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <h2 class="scene-welcome-title" id="scene-welcome-title">Welcome to Panel Talk Stage</h2>
+        <p class="scene-welcome-description" id="scene-welcome-description">
+          Join us for insightful discussions with industry experts, artists, and thought leaders. 
+          Explore the intersection of nature, technology, and creativity through engaging panel sessions.
+        </p>
+        <button class="btn btn-primary scene-welcome-btn" id="scene-welcome-enter">Enter</button>
+      </div>
+    </div>
+
+    <script type="module" src="./script.js"></script>
+  </body>
+</html>
