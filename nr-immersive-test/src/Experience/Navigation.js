@@ -102,12 +102,17 @@ export default class Navigation {
     this.exitConfirmationShown = false
 
     // Scroll settings for tree focus mode
-    this.scrollProgress = 0.85  // Start at exhibition section (top view)
+    this.scrollProgress = 0.5  // Start at tree landing position (middle)
     this.scrollSensitivity = 0.0003
-    this.targetScrollProgress = 0.85  // Start at exhibition section
+    this.targetScrollProgress = 0.5  // Start at tree landing position
 
     // Transition to tree when close enough
     this.transitionDistance = 12
+    
+    // Exhibition overview popup (shown at halfway in forest)
+    this.exhibitionOverviewShown = false
+    this.halfwayDistance = this.targetDistance / 2  // Half the distance to tree
+    this.treeLandingScrollProgress = 0.5  // Where on the tree the camera lands
     
     // Exhibition orbit mode (free orbit around tree crown)
     this.inExhibitionOrbit = false
@@ -120,6 +125,7 @@ export default class Navigation {
 
     this.setEventListeners()
     this.setupExitConfirmation()
+    this.setupExhibitionOverview()
     this.setupTopBarCenter()
     this.updateNavArrows()
     
@@ -282,6 +288,31 @@ export default class Navigation {
     } else {
       this.navArrowRight.style.opacity = '0'
       this.navArrowRight.style.pointerEvents = 'none'
+    }
+  }
+
+  setupExhibitionOverview() {
+    this.exhibitionOverview = document.getElementById('exhibition-overview')
+    this.exhibitionOverviewBtn = document.getElementById('exhibition-overview-btn')
+    
+    if (this.exhibitionOverviewBtn) {
+      this.exhibitionOverviewBtn.addEventListener('click', () => {
+        this.hideExhibitionOverview()
+        this.experience.transitionToTree(this.treeLandingScrollProgress)
+      })
+    }
+  }
+  
+  showExhibitionOverview() {
+    if (this.exhibitionOverview && !this.exhibitionOverviewShown) {
+      this.exhibitionOverview.classList.add('is-visible')
+      this.exhibitionOverviewShown = true
+    }
+  }
+  
+  hideExhibitionOverview() {
+    if (this.exhibitionOverview) {
+      this.exhibitionOverview.classList.remove('is-visible')
     }
   }
 
@@ -569,7 +600,7 @@ export default class Navigation {
       // Showcase orbit mode - scroll to zoom in/out
       const deltaRadius = event.deltaY * this.exhibitionZoomSensitivity
       this.camera.updateShowcaseOrbit(0, deltaRadius, 0)
-    } else if (this.experience.phase === 'forest' && !this.isSceneTransitioning) {
+    } else if (this.experience.phase === 'forest' && !this.isSceneTransitioning && !this.exhibitionOverviewShown) {
       const scrollDelta = Math.sign(event.deltaY) * this.moveSpeed
       this.moveVelocity += scrollDelta
 
@@ -725,8 +756,8 @@ export default class Navigation {
     }
 
     // Handle scroll movement toward current target direction
-    // Block movement when exit confirmation or welcome popup is shown
-    if (Math.abs(this.moveVelocity) > 0.001 && !this.exitConfirmationShown && !this.welcomeShown && !this.isSceneTransitioning) {
+    // Block movement when exit confirmation, welcome popup, or exhibition overview is shown
+    if (Math.abs(this.moveVelocity) > 0.001 && !this.exitConfirmationShown && !this.welcomeShown && !this.exhibitionOverviewShown && !this.isSceneTransitioning) {
       const currentTargetObj = this.targets[this.currentTarget]
       const forward = new THREE.Vector3()
       forward.subVectors(currentTargetObj.position, this.startPosition).normalize()
@@ -780,8 +811,8 @@ export default class Navigation {
       
       // Update target position to current position (so it doesn't snap back)
       this.targetPosition.copy(this.position)
-    } else if (this.exitConfirmationShown || this.welcomeShown) {
-      // Stop all movement when confirmation or welcome is shown
+    } else if (this.exitConfirmationShown || this.welcomeShown || this.exhibitionOverviewShown) {
+      // Stop all movement when confirmation, welcome, or overview is shown
       this.moveVelocity = 0
     }
 
@@ -838,12 +869,15 @@ export default class Navigation {
     // Update camera with mouse look and look-at target
     this.camera.updateWalkPosition(this.position, this.rotationY, mouseLookOffsetX, mouseLookOffsetY, lookAtTarget)
 
-    // Check distance to tree for transition (only when facing tree)
-    if (this.currentTarget === 'front') {
-      const treePos = new THREE.Vector3(0, this.position.y, -this.targetDistance)
-      const distToTree = this.position.distanceTo(treePos)
-      if (distToTree < this.transitionDistance) {
-        this.experience.transitionToTree()
+    // Show exhibition overview popup at halfway to tree (only when facing tree)
+    if (this.currentTarget === 'front' && !this.exhibitionOverviewShown) {
+      const forward = new THREE.Vector3()
+      forward.subVectors(this.targets.front.position, this.startPosition).normalize()
+      const toPos = new THREE.Vector3().subVectors(this.position, this.startPosition)
+      const dist = toPos.dot(forward)
+      if (dist >= this.halfwayDistance) {
+        this.moveVelocity = 0
+        this.showExhibitionOverview()
       }
     }
   }
@@ -877,10 +911,12 @@ export default class Navigation {
     this.currentTarget = 'front'
     this.previousTarget = 'front'
     this.inScene = false
+    this.exhibitionOverviewShown = false
     
     this.currentTopBarScene = 'default'
     this.updateTopBarCenter('default')
     this.showForestHint()
+    this.setNavButtonsVisible(true)
     this.updateNavArrows()
   }
 

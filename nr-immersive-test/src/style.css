@@ -821,12 +821,13 @@ body.phase-showcase-orbit .scene-hint {
 /* Back Button */
 .back-button {
   position: fixed;
-  top: 30px;
-  left: 30px;
+  bottom: 30px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 20px;
+  padding: 12px 24px;
   background: rgba(10, 26, 10, 0.8);
   border: 1px solid rgba(74, 154, 74, 0.3);
   border-radius: 30px;
@@ -842,7 +843,7 @@ body.phase-showcase-orbit .scene-hint {
 .back-button:hover {
   background: rgba(20, 50, 20, 0.9);
   border-color: rgba(74, 154, 74, 0.5);
-  transform: translateX(-3px);
+  transform: translateX(-50%) translateY(-3px);
 }
 
 /* Section Panels */

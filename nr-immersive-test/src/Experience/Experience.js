@@ -233,7 +233,7 @@ export default class Experience {
     this.renderer.update()
   }
 
-  transitionToTree() {
+  transitionToTree(startScrollProgress = 0.5) {
     if (this.phase === 'tree' || this.isTransitioning) return
     
     this.isTransitioning = true
@@ -241,27 +241,57 @@ export default class Experience {
 
     document.body.classList.add('phase-tree')
     document.body.classList.remove('phase-forest')
-    // Forest hint visibility is handled by CSS based on phase class
+    
+    // Hide forest UI
+    this.navigation.setNavButtonsVisible(false)
+    if (this.navigation.forestHint) {
+      this.navigation.forestHint.classList.add('is-hidden')
+    }
     
     // Update top bar center to show "Exhibition"
     this.navigation.updateTopBarCenter('front')
 
-    // Tree is at z = -60, orbit around it
+    // Calculate camera target from the scroll progress landing position
     const treeZ = -60
-    const targetPosition = { x: 0, y: 5, z: treeZ + this.camera.focusOrbitRadius }
+    const cam = this.camera
+    const landingHeight = THREE.MathUtils.lerp(cam.focusMinHeight, cam.focusMaxHeight, startScrollProgress)
+    const landingRadius = THREE.MathUtils.lerp(cam.focusMinOrbitRadius, cam.focusMaxOrbitRadius, startScrollProgress)
+    const landingLookAtHeight = THREE.MathUtils.lerp(
+      cam.focusMinLookAtHeight,
+      cam.focusMaxHeight * cam.focusLookAtRatio,
+      startScrollProgress
+    )
+    
+    const orbitAngle = cam.focusOrbitAngle
+    const targetX = Math.sin(orbitAngle) * landingRadius
+    const targetZ = treeZ + Math.cos(orbitAngle) * landingRadius
+    
+    const startCamPos = this.camera.instance.position.clone()
+    const endCamPos = new THREE.Vector3(targetX, landingHeight, targetZ)
+    const startLookAt = this.navigation.targets.front.position.clone()
+    const endLookAt = new THREE.Vector3(0, landingLookAtHeight, treeZ)
 
-    gsap.to(this.camera.instance.position, {
-      x: targetPosition.x,
-      y: targetPosition.y,
-      z: targetPosition.z,
-      duration: 2,
+    this.camera.mode = 'transitioning'
+    
+    const progress = { value: 0 }
+    gsap.to(progress, {
+      value: 1,
+      duration: 2.5,
       ease: 'power2.inOut',
       onUpdate: () => {
-        this.camera.instance.lookAt(0, 5, treeZ)
+        const t = progress.value
+        this.camera.instance.position.lerpVectors(startCamPos, endCamPos, t)
+        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
+        this.camera.instance.lookAt(look)
       },
       onComplete: () => {
+        // Set scroll progress to the landing position
+        this.camera.scrollProgress = startScrollProgress
+        this.navigation.scrollProgress = startScrollProgress
+        this.navigation.targetScrollProgress = startScrollProgress
+        
         this.camera.setFocusMode()
-        this.sections.show()
+        this.sections.show(startScrollProgress)
         this.isTransitioning = false
       }
     })
@@ -281,20 +311,30 @@ export default class Experience {
 
     this.sections.hide()
 
-    // Reset navigation to start position
-    this.navigation.resetToStart()
-    const startPosition = this.navigation.startPosition.clone()
+    const startCamPos = this.camera.instance.position.clone()
+    const endCamPos = this.navigation.startPosition.clone()
+    const startLookAt = new THREE.Vector3(0, this.camera.focusLookAtHeight, -60)
+    const endLookAt = this.navigation.targets.front.position.clone()
 
-    gsap.to(this.camera.instance.position, {
-      x: startPosition.x,
-      y: startPosition.y,
-      z: startPosition.z,
-      duration: 1.5,
+    this.camera.mode = 'transitioning'
+    
+    const progress = { value: 0 }
+    gsap.to(progress, {
+      value: 1,
+      duration: 2,
       ease: 'power2.inOut',
+      onUpdate: () => {
+        const t = progress.value
+        this.camera.instance.position.lerpVectors(startCamPos, endCamPos, t)
+        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
+        this.camera.instance.lookAt(look)
+      },
       onComplete: () => {
+        this.navigation.resetToStart()
+        this.camera.walkPosition.copy(endCamPos)
+        this.camera.walkLookAtTarget = endLookAt.clone()
         this.camera.setWalkMode()
         this.isTransitioning = false
-        // Forest hint visibility is handled by CSS based on phase class
       }
     })
   }

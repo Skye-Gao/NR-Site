@@ -1,3 +1,5 @@
+import * as THREE from 'three'
+import gsap from 'gsap'
 import Experience from './Experience.js'
 
 export default class Sections {
@@ -35,9 +37,7 @@ export default class Sections {
     this.backButton = document.querySelector('.back-button')
     if (this.backButton) {
       this.backButton.addEventListener('click', () => {
-        this.exitExhibitionOrbit()
-        this.exitShowcaseOrbit()
-        this.experience.transitionToForest()
+        this.returnToTreeLanding()
       })
     }
     
@@ -62,7 +62,7 @@ export default class Sections {
     }
   }
 
-  show() {
+  show(startScrollProgress = 0.5) {
     this.visible = true
     this.exhibitionEntryShown = false
     this.inExhibitionOrbit = false
@@ -71,7 +71,7 @@ export default class Sections {
     if (this.container) {
       this.container.classList.add('is-visible')
     }
-    this.updateScroll(0.85)  // Start at exhibition section (top view)
+    this.updateScroll(startScrollProgress)
   }
 
   hide() {
@@ -134,7 +134,7 @@ export default class Sections {
     }
   }
   
-  exitExhibitionOrbit() {
+  exitExhibitionOrbit(skipCameraReset = false) {
     if (!this.inExhibitionOrbit) return
     
     this.inExhibitionOrbit = false
@@ -148,14 +148,21 @@ export default class Sections {
     document.body.classList.remove('phase-exhibition-orbit')
     document.body.classList.add('phase-tree')
     
-    // Return camera to normal focus mode
-    if (this.experience.camera) {
-      this.experience.camera.setFocusMode()
-    }
-    
-    // Return navigation to normal
+    // Return navigation orbit mode
     if (this.experience.navigation) {
       this.experience.navigation.setExhibitionOrbitMode(false)
+    }
+    
+    if (!skipCameraReset) {
+      const landing = this.experience.navigation?.treeLandingScrollProgress ?? 0.5
+      if (this.experience.navigation) {
+        this.experience.navigation.scrollProgress = landing
+        this.experience.navigation.targetScrollProgress = landing
+      }
+      if (this.experience.camera) {
+        this.experience.camera.scrollProgress = landing
+        this.experience.camera.setFocusMode()
+      }
     }
   }
   
@@ -213,7 +220,7 @@ export default class Sections {
     }
   }
   
-  exitShowcaseOrbit() {
+  exitShowcaseOrbit(skipCameraReset = false) {
     if (!this.inShowcaseOrbit) return
     
     this.inShowcaseOrbit = false
@@ -237,15 +244,88 @@ export default class Sections {
       this.experience.world.mainTree.showAboveGroundOnly()
     }
     
-    // Return camera to normal focus mode
-    if (this.experience.camera) {
-      this.experience.camera.setFocusMode()
-    }
-    
-    // Return navigation to normal
+    // Return navigation orbit mode
     if (this.experience.navigation) {
       this.experience.navigation.setShowcaseOrbitMode(false)
     }
+    
+    if (!skipCameraReset) {
+      const landing = this.experience.navigation?.treeLandingScrollProgress ?? 0.5
+      if (this.experience.navigation) {
+        this.experience.navigation.scrollProgress = landing
+        this.experience.navigation.targetScrollProgress = landing
+      }
+      if (this.experience.camera) {
+        this.experience.camera.scrollProgress = landing
+        this.experience.camera.setFocusMode()
+      }
+    }
+  }
+
+  returnToTreeLanding() {
+    const wasInExhibition = this.inExhibitionOrbit
+    const wasInShowcase = this.inShowcaseOrbit
+    
+    if (!wasInExhibition && !wasInShowcase) return
+    
+    const cam = this.experience.camera
+    const nav = this.experience.navigation
+    const landing = nav?.treeLandingScrollProgress ?? 0.5
+    const treeZ = cam.treePosition.z
+    
+    // Calculate landing camera position from scroll progress
+    const landingHeight = THREE.MathUtils.lerp(cam.focusMinHeight, cam.focusMaxHeight, landing)
+    const landingRadius = THREE.MathUtils.lerp(cam.focusMinOrbitRadius, cam.focusMaxOrbitRadius, landing)
+    const landingLookAtHeight = THREE.MathUtils.lerp(
+      cam.focusMinLookAtHeight,
+      cam.focusMaxHeight * cam.focusLookAtRatio,
+      landing
+    )
+    const orbitAngle = cam.focusOrbitAngle
+    const endX = Math.sin(orbitAngle) * landingRadius
+    const endZ = treeZ + Math.cos(orbitAngle) * landingRadius
+    
+    const startCamPos = cam.instance.position.clone()
+    const endCamPos = new THREE.Vector3(endX, landingHeight, endZ)
+    const endLookAt = new THREE.Vector3(cam.treePosition.x, landingLookAtHeight, treeZ)
+    
+    // Determine start look-at from current orbit mode
+    let startLookAt
+    if (wasInExhibition) {
+      startLookAt = new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight, treeZ)
+    } else {
+      startLookAt = new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight, treeZ)
+    }
+    
+    // Disable navigation during transition
+    if (nav) nav.enabled = false
+    cam.mode = 'transitioning'
+    
+    // Exit orbit state (restores floor, tree parts, body classes) but skip camera reset
+    if (wasInExhibition) this.exitExhibitionOrbit(true)
+    if (wasInShowcase) this.exitShowcaseOrbit(true)
+    
+    const progress = { value: 0 }
+    gsap.to(progress, {
+      value: 1,
+      duration: 2,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        const t = progress.value
+        cam.instance.position.lerpVectors(startCamPos, endCamPos, t)
+        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
+        cam.instance.lookAt(look)
+      },
+      onComplete: () => {
+        if (nav) {
+          nav.scrollProgress = landing
+          nav.targetScrollProgress = landing
+          nav.enabled = true
+        }
+        cam.scrollProgress = landing
+        cam.setFocusMode()
+      }
+    })
   }
 
   updateScroll(progress) {

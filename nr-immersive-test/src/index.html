@@ -111,11 +111,11 @@
       </div>
 
       <div class="sections-container">
-        <button class="back-button" aria-label="Return to forest">
+        <button class="back-button" aria-label="Back to the ground">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M19 12H5M12 19l-7-7 7-7"/>
+            <path d="M12 5v14M5 12l7 7 7-7"/>
           </svg>
-          <span>Back to Forest</span>
+          <span>Back to the ground</span>
         </button>
 
         <div class="section section-showcase" data-section="showcase">
@@ -235,8 +235,8 @@
       </div>
     </div>
 
-    <!-- Exhibition Entry Popup -->
-    <div class="exhibition-entry" id="exhibition-entry">
+    <!-- Exhibition Overview Popup (shown in forest at halfway) -->
+    <div class="exhibition-entry" id="exhibition-overview">
       <div class="exhibition-entry-content">
         <div class="exhibition-entry-icon">
           <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -246,10 +246,30 @@
         </div>
         <h2 class="exhibition-entry-title">Exhibition Space</h2>
         <p class="exhibition-entry-description">
-          Enter our immersive exhibition featuring curated artworks from visionary artists.
-          Navigate freely to explore each piece up close.
+          Welcome to the Exhibition Space — an immersive journey through the tree of creativity.
+          Two curated spaces await you: scroll up to explore the <strong>Main Exhibition</strong> 
+          in the tree crown, or scroll down to discover the <strong>AWS Showcase</strong> 
+          hidden within the tree's root system.
         </p>
-        <button class="btn btn-primary exhibition-entry-btn" id="exhibition-entry-btn">Enter Exhibition</button>
+        <button class="btn btn-primary exhibition-entry-btn" id="exhibition-overview-btn">Enter</button>
+      </div>
+    </div>
+
+    <!-- Exhibition Crown Entry Popup (shown at tree top) -->
+    <div class="exhibition-entry" id="exhibition-entry">
+      <div class="exhibition-entry-content">
+        <div class="exhibition-entry-icon">
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="1.5">
+            <circle cx="24" cy="24" r="20"/>
+            <path d="M24 14v20M14 24h20"/>
+          </svg>
+        </div>
+        <h2 class="exhibition-entry-title">Main Exhibition</h2>
+        <p class="exhibition-entry-description">
+          Enter the tree crown to explore curated artworks from visionary artists.
+          Navigate freely to discover each piece up close.
+        </p>
+        <button class="btn btn-primary exhibition-entry-btn" id="exhibition-entry-btn">Enter</button>
       </div>
     </div>
 

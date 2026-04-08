@@ -35,7 +35,7 @@ export default class Camera {
     this.focusLookAtHeight = 5     // Where camera looks at
     this.focusLookAtRatio = 0.95   // At top, look nearly at same height (horizontal)
     this.focusMinLookAtHeight = -10 // Look at roots when at bottom
-    this.scrollProgress = 0.85    // Start at exhibition section (top view)
+    this.scrollProgress = 0.5     // Start at tree landing position (middle)
     
     // Focus mode orbit angle (for panning around tree)
     this.focusOrbitAngle = Math.PI * 0.5  // Start from side
