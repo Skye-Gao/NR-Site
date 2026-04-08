@@ -66,13 +66,13 @@ export default class Navigation {
     this.previousMouseX = 0
     this.previousMouseY = 0
 
-    // Mouse look - subtle view movement following cursor
-    this.mouseLookStrength = 0.2  // How much the view follows the mouse
+    // Mouse look - view movement following cursor
+    this.mouseLookStrength = 2.0  // How much the view follows the mouse
     this.mouseX = 0  // -1 to 1 (left to right)
     this.mouseY = 0  // -1 to 1 (top to bottom)
     this.currentMouseX = 0  // Smoothed value
     this.currentMouseY = 0  // Smoothed value
-    this.mouseLookSmoothing = 0.05  // How smooth the follow is
+    this.mouseLookSmoothing = 0.04  // How smooth the follow is (lower = more fluid lag)
     
     // Scene drag look - subtle drag interaction in scenes
     this.sceneDragOffsetX = 0

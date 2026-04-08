@@ -232,17 +232,17 @@ export default class Camera {
       
       // If we have a specific target to look at, use it (keeps object centered)
       if (this.walkLookAtTarget) {
-        // Apply subtle mouse look offset to the target
+        // Apply mouse look offset to the target
         const targetWithOffset = new THREE.Vector3(
-          this.walkLookAtTarget.x + this.mouseLookX * 3,
-          this.walkLookAtTarget.y + this.mouseLookY * 2,
+          this.walkLookAtTarget.x + this.mouseLookX * 8,
+          this.walkLookAtTarget.y + this.mouseLookY * 5,
           this.walkLookAtTarget.z
         )
         this.instance.lookAt(targetWithOffset)
       } else {
         // Calculate look direction with mouse offset (free look)
         const yaw = this.walkRotationY + this.mouseLookX
-        const pitch = this.mouseLookY * 0.3  // Subtle vertical look
+        const pitch = this.mouseLookY * 0.5
         
         // Calculate look-at point based on rotation
         const lookDistance = 10
