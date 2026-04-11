@@ -33,13 +33,13 @@ export default class Forest {
     }
 
     this.settings = {
-      treeCount: 165,
+      treeCount: 248, // 1.5× prior 165
       forestRadius: 80,
       clearingRadius: 4.5,
       surfaceSampleCount: 34000,
       treeScaleTarget: 20.8, // 2× prior 10.4 (spatial extent of each sampled tree)
       particlesPerTree: 1350, // denser forest
-      maxParticles: 260000,
+      maxParticles: 390000, // scaled with treeCount so per-tree cap stays ~1350
       pointSize: 0.022, // 2× prior; screen-space splat size
       decaySpeed: 0.35,
       lifeMix: 0.18,
@@ -442,7 +442,7 @@ export default class Forest {
   setDebug() {
     const folder = this.debug.ui.addFolder('Forest Particles')
     folder.add(this.settings, 'treeScaleTarget', 3.0, 40.0, 0.1).name('treeScale')
-    folder.add(this.settings, 'treeCount', 50, 260, 1).name('treeCount')
+    folder.add(this.settings, 'treeCount', 50, 400, 1).name('treeCount')
     folder.add(this.settings, 'particlesPerTree', 200, 2600, 10).name('particlesPerTree')
     folder.add(this.settings, 'scaleMin', 0.3, 2.0, 0.01).name('scaleMin')
     folder.add(this.settings, 'scaleMax', 0.3, 2.5, 0.01).name('scaleMax')

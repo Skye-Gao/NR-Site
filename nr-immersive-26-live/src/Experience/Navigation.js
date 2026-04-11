@@ -7,6 +7,9 @@ import {
 } from './Utils/livestreamWelcomeContent.js'
 import { WORLD_GROUND_LEVEL_Y, getWalkEyeWorldY } from './World/worldGroundLevel.js'
 
+/** Live build: block exit-to-forest (scroll-back confirm, pill button, dialog, Escape). */
+const EXIT_TO_FOREST_DISABLED = true
+
 export default class Navigation {
   constructor() {
     this.experience = new Experience()
@@ -603,6 +606,10 @@ export default class Navigation {
   refreshExitToForestButton() {
     const btn = this.exitToForestBtn
     if (!btn) return
+    if (EXIT_TO_FOREST_DISABLED) {
+      btn.classList.remove('is-visible')
+      return
+    }
     const exp = this.experience
     const inSideScene =
       exp.phase === 'forest' &&
@@ -637,6 +644,7 @@ export default class Navigation {
   }
 
   showExitConfirmation() {
+    if (EXIT_TO_FOREST_DISABLED) return
     if (this.exitConfirmation && !this.exitConfirmationShown) {
       this.exitConfirmation.classList.add('is-visible')
       this.exitConfirmationShown = true
@@ -652,6 +660,7 @@ export default class Navigation {
   }
 
   onExitConfirm() {
+    if (EXIT_TO_FOREST_DISABLED) return
     this.closeLivestreamInfoModal()
 
     // Tree hub uses full tree -> forest transition
@@ -1044,7 +1053,7 @@ export default class Navigation {
     }
     
     if (event.code === 'Escape' && this.experience.phase === 'tree') {
-      this.experience.transitionToForest()
+      if (!EXIT_TO_FOREST_DISABLED) this.experience.transitionToForest()
     }
   }
 

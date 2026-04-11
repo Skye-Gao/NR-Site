@@ -49,14 +49,8 @@ export default class Experience {
     this.loadingScreen = document.querySelector('.loading-screen')
     this.forestHint = document.querySelector('.forest-hint')
     this.landingPage = document.querySelector('.landing-page')
-    this.logoButton = document.querySelector('.top-bar-logo')
 
-    // Hide landing page UI immediately
-    if (this.landingPage) {
-      this.landingPage.style.display = 'none'
-    }
-
-    // Disable navigation during camera transition
+    // Disable navigation until the user passes the welcome page (Enter + valid code)
     this.navigation.enabled = false
 
     this.sizes.on('resize', () => this.resize())
@@ -64,82 +58,14 @@ export default class Experience {
 
     this.resources.on('ready', () => {
       this.hideLoadingScreen()
-      this.enterExperience()
     })
     if (this.resources.toLoad === 0) {
       setTimeout(() => {
         this.hideLoadingScreen()
-        this.enterExperience()
       }, 500)
     }
 
     this.setupLandingPage()
-    this.setupLogoNavigation()
-  }
-
-  setupLogoNavigation() {
-    if (!this.logoButton) return
-    this.logoButton.style.cursor = 'pointer'
-    this.logoButton.addEventListener('click', () => this.onLogoClick())
-  }
-
-  onLogoClick() {
-    // If user hasn't passed welcome yet, stay on welcome page.
-    if (this.phase === 'landing') return
-    if (this.isTransitioning) return
-
-    // Tree phase already has a dedicated transition back.
-    if (this.phase === 'tree') {
-      this.transitionToForest()
-      return
-    }
-
-    // Forest phase: return to the forest landing position smoothly.
-    if (this.phase === 'forest') {
-      this.returnToForestLanding()
-    }
-  }
-
-  returnToForestLanding() {
-    if (this.isTransitioning) return
-    this.isTransitioning = true
-
-    // If currently in side scene, notify world to pause scene content.
-    if (this.navigation.currentTarget !== 'front' && this.world?.onExitScene) {
-      this.world.onExitScene(this.navigation.currentTarget)
-    }
-
-    // Hide any blocking overlays before transition.
-    if (this.navigation?.hideExitConfirmation) this.navigation.hideExitConfirmation()
-    if (this.navigation?.sceneWelcome) this.navigation.sceneWelcome.classList.remove('is-visible')
-    if (this.navigation?.closeLivestreamInfoModal) this.navigation.closeLivestreamInfoModal()
-
-    const endCamPos = this.navigation.startPosition.clone()
-    const endLookAt = this.navigation.targets.front.position.clone()
-    const startCamPos = this.camera.instance.position.clone()
-    const startLookAt = this.navigation.targets[this.navigation.currentTarget]?.position?.clone() || endLookAt.clone()
-
-    this.camera.mode = 'transitioning'
-    const progress = { value: 0 }
-    gsap.to(progress, {
-      value: 1,
-      duration: 2,
-      ease: 'sine.inOut',
-      onUpdate: () => {
-        const t = progress.value
-        this.camera.instance.position.lerpVectors(startCamPos, endCamPos, t)
-        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
-        this.camera.instance.lookAt(look)
-      },
-      onComplete: () => {
-        this.navigation.resetToStart()
-        this.navigation.enabled = true
-        this.camera.walkPosition.copy(endCamPos)
-        this.camera.walkLookAtTarget = endLookAt.clone()
-        this.camera.setWalkMode()
-        this.isTransitioning = false
-      }
-    })
   }
 
   setupLandingPage() {
@@ -266,53 +192,75 @@ export default class Experience {
     
     document.body.classList.remove('phase-landing')
     document.body.classList.add('phase-forest')
-    
-    if (this.landingPage) {
-      this.landingPage.style.display = 'none'
-    }
-    
-    // Get start position from navigation
-    const startPosition = this.navigation.startPosition.clone()
-    
-    // Walk mode will look at the default target (front/tree)
-    const walkLookAt = this.navigation.targets[this.navigation.currentTarget].position.clone()
-    
-    // Starting lookAt for overhead view
-    const overheadLookAt = new THREE.Vector3(0, 5, -15)
-    
-    // Capture the camera's actual current position (may have drifted from landing orbit)
+
+    const nav = this.navigation
+    // phase-forest would show main-forest nav pills + hint via CSS; keep them off until the swing ends.
+    nav.setNavButtonsVisible(false)
+    if (nav.forestHint) nav.forestHint.classList.add('is-hidden')
+    const targetKey = 'right'
+    const targetObj = nav.targets[targetKey]
+    const dirToTarget = new THREE.Vector3()
+      .subVectors(targetObj.position, nav.startPosition)
+      .normalize()
+    const livestreamLandingPos = nav.startPosition.clone().add(
+      dirToTarget.multiplyScalar(nav.approachDistance)
+    )
+    livestreamLandingPos.y = getWalkEyeWorldY()
+
+    const walkLookAt = targetObj.position.clone()
+    const finalYaw = targetObj.angle
+    // Must match Camera landing lookAt so the first tween frame is continuous (no snap).
+    const overheadLookAt = new THREE.Vector3(0, 5 + WORLD_GROUND_LEVEL_Y, -15)
+
     const transitionStartPos = this.camera.instance.position.clone()
-    
-    // Stop the landing mode update from fighting with the GSAP animation
+
     this.camera.mode = 'transitioning'
-    
-    // Animate camera from overhead to forest walk position
+
     const transitionProgress = { value: 0 }
+    const applyIntroFrame = (t) => {
+      this.camera.instance.position.lerpVectors(
+        transitionStartPos,
+        livestreamLandingPos,
+        t
+      )
+      const lookTarget = new THREE.Vector3().lerpVectors(overheadLookAt, walkLookAt, t)
+      this.camera.instance.lookAt(lookTarget)
+    }
+
     gsap.to(transitionProgress, {
       value: 1,
-      duration: 2.5,
-      ease: 'power2.inOut',
-      onUpdate: () => {
-        const t = transitionProgress.value
-        
-        // Interpolate camera position from current to walk start
-        this.camera.instance.position.lerpVectors(
-          transitionStartPos, startPosition, t
-        )
-        
-        // Interpolate look-at target from overhead center to walk target
-        const lookTarget = new THREE.Vector3().lerpVectors(overheadLookAt, walkLookAt, t)
-        this.camera.instance.lookAt(lookTarget)
-      },
+      // ~2× faster than the 5.5s pass (half the duration).
+      duration: 2.75,
+      ease: 'sine.inOut',
+      onStart: () => applyIntroFrame(0),
+      onUpdate: () => applyIntroFrame(transitionProgress.value),
       onComplete: () => {
-        // Ensure final state exactly matches walk mode
-        this.camera.instance.position.copy(startPosition)
+        this.camera.instance.position.copy(livestreamLandingPos)
         this.camera.instance.lookAt(walkLookAt)
-        
+
+        nav.previousTarget = 'front'
+        nav.currentTarget = targetKey
+        nav.rotationY = finalYaw
+        nav.targetRotationY = finalYaw
+        nav.position.copy(livestreamLandingPos)
+        nav.targetPosition.copy(livestreamLandingPos)
+        nav.moveVelocity = 0
+        nav.clearPanelTalkStops()
+        nav.mouseLookStrength = nav.livestreamMouseLookStrength
+        nav.currentTopBarScene = targetKey
+        nav.updateTopBarCenter(targetKey)
+        if (nav.forestHint) nav.forestHint.classList.add('is-hidden')
+        if (nav.sceneHint) nav.sceneHint.classList.remove('is-visible')
+        nav.setNavButtonsVisible(false)
+
         this.phase = 'forest'
+        this.camera.walkPosition.copy(livestreamLandingPos)
+        this.camera.walkLookAtTarget = walkLookAt.clone()
         this.camera.setWalkMode()
-        this.navigation.enabled = true
+        nav.enabled = true
         this.isTransitioning = false
+
+        nav.showSceneWelcome(targetKey)
 
         this.scheduleSideStageShaderWarmupFallback()
       }

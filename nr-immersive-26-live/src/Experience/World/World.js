@@ -27,6 +27,7 @@ export default class World {
     this.environment = new Environment()
     this.forest = new Forest()
     this.mainTree = new MainTree()
+    if (this.mainTree?.group) this.mainTree.group.visible = false
     this.destinations = new Destinations()
     this.panelTalkScene = new PanelTalkScene()
     this.livestreamScene = new LivestreamScene()

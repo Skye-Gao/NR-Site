@@ -73,6 +73,8 @@ body.phase-showcase-orbit:active {
 .top-bar-logo {
   display: flex;
   align-items: center;
+  pointer-events: none;
+  cursor: default;
 }
 
 .top-bar-logo img {

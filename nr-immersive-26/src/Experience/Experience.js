@@ -51,12 +51,7 @@ export default class Experience {
     this.landingPage = document.querySelector('.landing-page')
     this.logoButton = document.querySelector('.top-bar-logo')
 
-    // Hide landing page UI immediately
-    if (this.landingPage) {
-      this.landingPage.style.display = 'none'
-    }
-
-    // Disable navigation during camera transition
+    // Disable navigation until the user passes the welcome page (Enter + valid code)
     this.navigation.enabled = false
 
     this.sizes.on('resize', () => this.resize())
@@ -64,12 +59,10 @@ export default class Experience {
 
     this.resources.on('ready', () => {
       this.hideLoadingScreen()
-      this.enterExperience()
     })
     if (this.resources.toLoad === 0) {
       setTimeout(() => {
         this.hideLoadingScreen()
-        this.enterExperience()
       }, 500)
     }
 
@@ -266,11 +259,7 @@ export default class Experience {
     
     document.body.classList.remove('phase-landing')
     document.body.classList.add('phase-forest')
-    
-    if (this.landingPage) {
-      this.landingPage.style.display = 'none'
-    }
-    
+
     // Get start position from navigation
     const startPosition = this.navigation.startPosition.clone()
     
