@@ -2,6 +2,9 @@ import * as THREE from 'three'
 import Hls from 'hls.js'
 import Experience from './Experience.js'
 
+/** Multiplier for how far from the screen clicks register (vs previous tuning). */
+const SCREEN_CLICK_DISTANCE_SCALE = 1.4
+
 export default class VideoPopup {
   constructor() {
     this.experience = new Experience()
@@ -25,7 +28,7 @@ export default class VideoPopup {
     this.popupTitle = document.getElementById('video-popup-title')
     this.popupClose = document.getElementById('video-popup-close')
     
-    this.currentType = null  // 'video', 'youtube', or 'hls'
+    this.currentType = null  // 'video', 'youtube', 'vimeo', or 'hls'
     this.hls = null  // HLS instance for popup
     
     this.setupEventListeners()
@@ -80,14 +83,71 @@ export default class VideoPopup {
       })
     }
   }
+
+  isInteractionBlocked() {
+    if (this.isOpen) return true
+    const nav = this.experience.navigation
+    if (!nav) return false
+    if (this.experience.isTransitioning || nav.isSceneTransitioning || nav.welcomeShown || nav.exitConfirmationShown) return true
+    if (document.getElementById('scene-welcome')?.classList.contains('is-visible')) return true
+    if (document.querySelector('.exit-confirmation')?.classList.contains('is-visible')) return true
+    if (document.getElementById('artwork-popup')?.classList.contains('is-visible')) return true
+    if (document.getElementById('exhibition-overview')?.classList.contains('is-visible')) return true
+    if (document.getElementById('exhibition-entry')?.classList.contains('is-visible')) return true
+    if (document.getElementById('showcase-entry')?.classList.contains('is-visible')) return true
+    if (document.getElementById('livestream-info-modal')?.classList.contains('is-visible')) return true
+    return false
+  }
+
+  getScreenScene(screenData) {
+    if (screenData.scene) return screenData.scene
+    const nav = this.experience.navigation
+    const left = nav?.targets?.left?.position
+    const right = nav?.targets?.right?.position
+    if (!left || !right) return null
+    const p = new THREE.Vector3()
+    screenData.mesh.getWorldPosition(p)
+    return p.distanceTo(left) < p.distanceTo(right) ? 'left' : 'right'
+  }
+
+  isScreenInteractable(screenData) {
+    const nav = this.experience.navigation
+    const cam = this.camera?.instance
+    if (!nav || !cam || !screenData?.mesh) return false
+    if (this.isInteractionBlocked()) return false
+    if (!nav.inScene) return false
+    const currentScene = this.experience.world?.currentScene
+    const scene = this.getScreenScene(screenData)
+    if (!currentScene || currentScene !== scene) return false
+
+    const screenPos = new THREE.Vector3()
+    screenData.mesh.getWorldPosition(screenPos)
+    const camPos = cam.position.clone()
+    const toScreen = screenPos.clone().sub(camPos).normalize()
+    const camForward = new THREE.Vector3()
+    cam.getWorldDirection(camForward)
+
+    if (scene === 'left') {
+      // Panel Talk: only clickable when user is in front of screen.
+      const maxDist = 14 * SCREEN_CLICK_DISTANCE_SCALE
+      return camForward.dot(toScreen) > 0.75 && camPos.distanceTo(screenPos) < maxDist
+    }
+    if (scene === 'right') {
+      // Livestream: clickable within scaled fraction of display↔landing distance.
+      const dir = new THREE.Vector3().subVectors(nav.targets.right.position, nav.startPosition).normalize()
+      const landingPos = nav.startPosition.clone().add(dir.multiplyScalar(nav.approachDistance))
+      const maxClickDist =
+        landingPos.distanceTo(screenPos) * 0.5 * SCREEN_CLICK_DISTANCE_SCALE
+      return camPos.distanceTo(screenPos) <= maxClickDist
+    }
+    return false
+  }
   
   onMouseMove(event) {
-    if (this.isOpen || this.clickableScreens.length === 0) return
+    if (this.clickableScreens.length === 0) return
     if (!this.camera?.instance) return
-    
-    // Only show pointer when in a scene (past welcome popup)
-    const currentScene = this.experience.world?.currentScene
-    if (!currentScene || (currentScene !== 'left' && currentScene !== 'right')) {
+
+    if (this.isInteractionBlocked()) {
       if (this.canvas) this.canvas.style.cursor = ''
       return
     }
@@ -111,7 +171,8 @@ export default class VideoPopup {
       for (const intersect of intersects) {
         let obj = intersect.object
         while (obj) {
-          if (this.clickableScreens.find(s => s.mesh === obj)) {
+          const screen = this.clickableScreens.find(s => s.mesh === obj)
+          if (screen && this.isScreenInteractable(screen)) {
             isHovering = true
             break
           }
@@ -132,8 +193,8 @@ export default class VideoPopup {
   }
   
   // Register a clickable screen
-  registerScreen(mesh, videoSrc, title = 'Video') {
-    this.clickableScreens.push({ mesh, videoSrc, title })
+  registerScreen(mesh, videoSrc, title = 'Video', scene = null) {
+    this.clickableScreens.push({ mesh, videoSrc, title, scene })
   }
   
   // Unregister screens (for cleanup)
@@ -145,10 +206,7 @@ export default class VideoPopup {
     if (this.isOpen) return
     if (this.clickableScreens.length === 0) return
     if (!this.camera?.instance) return
-    
-    // Only allow clicks after user has entered a scene (past welcome popup)
-    const currentScene = this.experience.world?.currentScene
-    if (!currentScene || (currentScene !== 'left' && currentScene !== 'right')) return
+    if (this.isInteractionBlocked()) return
     
     // Calculate mouse position in normalized device coordinates (canvas fills window)
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
@@ -171,7 +229,7 @@ export default class VideoPopup {
         // Check if this object or any of its parents is a registered screen
         while (obj) {
           const screenData = this.clickableScreens.find(s => s.mesh === obj)
-          if (screenData) {
+          if (screenData && this.isScreenInteractable(screenData)) {
             this.open(screenData.videoSrc, screenData.title)
             return
           }
@@ -199,6 +257,25 @@ export default class VideoPopup {
   isHLSStream(url) {
     return url && (url.includes('.m3u8') || url.includes('application/vnd.apple.mpegurl'))
   }
+
+  isVimeoEmbed(url) {
+    return (
+      typeof url === 'string' &&
+      url.includes('vimeo.com') &&
+      url.includes('/embed/')
+    )
+  }
+
+  /** Autoplay for Vimeo / other embed URLs (query-safe). */
+  embedUrlWithAutoplay(url) {
+    try {
+      const u = new URL(url, window.location.origin)
+      u.searchParams.set('autoplay', '1')
+      return u.toString()
+    } catch {
+      return url.includes('?') ? `${url}&autoplay=1` : `${url}?autoplay=1`
+    }
+  }
   
   open(videoSrc, title) {
     if (!this.popup) return
@@ -220,6 +297,15 @@ export default class VideoPopup {
       // Set YouTube embed URL with autoplay
       if (this.popupIframe) {
         this.popupIframe.src = `https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`
+      }
+    } else if (this.isVimeoEmbed(videoSrc)) {
+      this.currentType = 'vimeo'
+
+      if (this.popupPlayer) this.popupPlayer.classList.add('is-hidden')
+      if (this.popupIframeContainer) this.popupIframeContainer.classList.add('is-visible')
+
+      if (this.popupIframe) {
+        this.popupIframe.src = this.embedUrlWithAutoplay(videoSrc)
       }
     } else if (this.isHLSStream(videoSrc)) {
       // HLS stream
@@ -283,8 +369,7 @@ export default class VideoPopup {
     
     this.isOpen = false
     
-    if (this.currentType === 'youtube') {
-      // Clear iframe src to stop video
+    if (this.currentType === 'youtube' || this.currentType === 'vimeo') {
       if (this.popupIframe) this.popupIframe.src = ''
       if (this.popupIframeContainer) this.popupIframeContainer.classList.remove('is-visible')
     } else if (this.currentType === 'hls') {

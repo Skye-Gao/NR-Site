@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import Experience from '../Experience.js'
+import { WORLD_GROUND_LEVEL_Y } from './worldGroundLevel.js'
 
 export default class ShowcaseNodes {
   constructor() {
@@ -9,7 +10,7 @@ export default class ShowcaseNodes {
     this.debug = this.experience.debug
 
     // Tree position reference
-    this.treePosition = new THREE.Vector3(0, 0, -60)
+    this.treePosition = new THREE.Vector3(0, WORLD_GROUND_LEVEL_Y, -60)
     
     // Global node settings (adjustable via debug UI) - Underground positioning
     this.nodeSettings = {
@@ -140,7 +141,7 @@ export default class ShowcaseNodes {
       
       // Height with variation (near ground level for roots)
       const heightOffset = Math.sin(index * 1.5) * s.heightVariation
-      const y = s.baseHeight + heightOffset
+      const y = s.baseHeight + heightOffset + WORLD_GROUND_LEVEL_Y
       
       mesh.position.set(x, y, z)
       mesh.scale.setScalar(s.baseScale)
@@ -298,8 +299,29 @@ export default class ShowcaseNodes {
     // Close popup handlers are shared with ExhibitionNodes
   }
 
+  isInteractionBlocked() {
+    const nav = this.experience.navigation
+    if (!nav) return false
+    if (this.experience.isTransitioning || nav.isSceneTransitioning || nav.welcomeShown || nav.exitConfirmationShown) return true
+    if (document.getElementById('video-popup')?.classList.contains('is-visible')) return true
+    if (document.getElementById('artwork-popup')?.classList.contains('is-visible')) return true
+    if (document.getElementById('scene-welcome')?.classList.contains('is-visible')) return true
+    if (document.getElementById('livestream-info-modal')?.classList.contains('is-visible')) return true
+    if (document.querySelector('.exit-confirmation')?.classList.contains('is-visible')) return true
+    if (document.getElementById('exhibition-overview')?.classList.contains('is-visible')) return true
+    if (document.getElementById('exhibition-entry')?.classList.contains('is-visible')) return true
+    if (document.getElementById('showcase-entry')?.classList.contains('is-visible')) return true
+    return false
+  }
+
+  isInCorrespondingSpace() {
+    return this.camera?.mode === 'showcaseOrbit'
+  }
+
   onClick(event) {
     if (!this.visible) return
+    if (!this.isInCorrespondingSpace()) return
+    if (this.isInteractionBlocked()) return
     
     // Calculate mouse position
     this.mouse.x = (event.clientX / window.innerWidth) * 2 - 1
@@ -326,6 +348,8 @@ export default class ShowcaseNodes {
 
   openPopup(data) {
     if (!this.popup) return
+    if (!this.isInCorrespondingSpace()) return
+    if (this.isInteractionBlocked()) return
     
     // Set content
     if (this.popupTitle) this.popupTitle.textContent = data.title

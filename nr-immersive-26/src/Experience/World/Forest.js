@@ -4,6 +4,7 @@ import { DRACOLoader } from 'three/addons/loaders/DRACOLoader.js'
 import { MeshSurfaceSampler } from 'three/addons/math/MeshSurfaceSampler.js'
 import { GPUComputationRenderer } from 'three/addons/misc/GPUComputationRenderer.js'
 import Experience from '../Experience.js'
+import { WORLD_GROUND_LEVEL_Y } from './worldGroundLevel.js'
 import particlesVertexShader from './Shaders/forestParticlesVertex.glsl?raw'
 import particlesFragmentShader from './Shaders/forestParticlesFragment.glsl?raw'
 import gpgpuParticlesShader from './Shaders/forestGpgpuParticles.glsl?raw'
@@ -36,17 +37,18 @@ export default class Forest {
       forestRadius: 80,
       clearingRadius: 4.5,
       surfaceSampleCount: 34000,
-      treeScaleTarget: 10.4, // 2x larger than previous 5.2
+      treeScaleTarget: 20.8, // 2× prior 10.4 (spatial extent of each sampled tree)
       particlesPerTree: 1350, // denser forest
       maxParticles: 260000,
-      pointSize: 0.011,
+      pointSize: 0.022, // 2× prior; screen-space splat size
       decaySpeed: 0.35,
       lifeMix: 0.18,
-      minPointSize: 0.7,
-      maxPointSize: 7.0,
+      minPointSize: 1.4,
+      maxPointSize: 14.0,
       scaleMin: 0.72,
       scaleMax: 1.28,
-      terrainHeight: 0.9
+      /** Added to floor Y; negative sinks particle trees toward the floor, positive lifts them. */
+      treesYOffset: 0
     }
     this.settings.resampleNow = () => this.rebuildForest()
 
@@ -192,16 +194,25 @@ export default class Forest {
     const rigidity = new Float32Array(finalCount)
 
     const tmp = new THREE.Vector3()
+    const scratchXs = new Float32Array(particlesPerTree)
+    const scratchZs = new Float32Array(particlesPerTree)
+    const scratchYl = new Float32Array(particlesPerTree)
+    const scratchSrc = new Uint32Array(particlesPerTree)
+
     let write = 0
     for (const center of centers) {
       const scale = THREE.MathUtils.lerp(this.settings.scaleMin, this.settings.scaleMax, Math.random())
       const yaw = Math.random() * Math.PI * 2
       const cosY = Math.cos(yaw)
       const sinY = Math.sin(yaw)
-      const groundY = this.evaluateTerrainHeight(center.x, center.z)
 
+      // Per tree: lowest sample sits at local Y=0 so bases align with the flat floor
+      // (WORLD_GROUND_LEVEL_Y on the Points mesh). No sine terrain on Y — it fought the
+      // single floor plane and made distant trees look like they floated.
+      let treeMinLocalY = Infinity
       for (let i = 0; i < particlesPerTree; i++) {
         const src = (Math.random() * baseTree.count) | 0
+        scratchSrc[i] = src
         tmp.set(
           baseTree.positions[src * 3 + 0],
           baseTree.positions[src * 3 + 1],
@@ -210,9 +221,17 @@ export default class Forest {
 
         const x = tmp.x * cosY - tmp.z * sinY
         const z = tmp.x * sinY + tmp.z * cosY
-        positions[write * 3 + 0] = center.x + x
-        positions[write * 3 + 1] = groundY + tmp.y
-        positions[write * 3 + 2] = center.z + z
+        scratchXs[i] = x
+        scratchZs[i] = z
+        scratchYl[i] = tmp.y
+        if (tmp.y < treeMinLocalY) treeMinLocalY = tmp.y
+      }
+
+      for (let i = 0; i < particlesPerTree; i++) {
+        const src = scratchSrc[i]
+        positions[write * 3 + 0] = center.x + scratchXs[i]
+        positions[write * 3 + 1] = scratchYl[i] - treeMinLocalY
+        positions[write * 3 + 2] = center.z + scratchZs[i]
 
         colors[write * 3 + 0] = baseTree.colors[src * 3 + 0]
         colors[write * 3 + 1] = baseTree.colors[src * 3 + 1]
@@ -315,13 +334,12 @@ export default class Forest {
     this.points.frustumCulled = false
     material.uniforms.uParticlesTexture.value = this.gpgpu.fallbackTexture
     this.scene.add(this.points)
+    this.applyTreesGroundOffset()
   }
 
-  evaluateTerrainHeight(x, z) {
-    const n1 = Math.sin(x * 0.35) * Math.cos(z * 0.28)
-    const n2 = Math.sin((x + z) * 0.17 + 1.3) * 0.6
-    const n3 = Math.cos((x - z) * 0.11 - 0.8) * 0.4
-    return (n1 + n2 + n3) * 0.33 * this.settings.terrainHeight
+  applyTreesGroundOffset() {
+    if (!this.points) return
+    this.points.position.y = WORLD_GROUND_LEVEL_Y + this.settings.treesYOffset
   }
 
   generateForestCenters() {
@@ -423,19 +441,22 @@ export default class Forest {
 
   setDebug() {
     const folder = this.debug.ui.addFolder('Forest Particles')
-    folder.add(this.settings, 'treeScaleTarget', 3.0, 18.0, 0.1).name('treeScale')
+    folder.add(this.settings, 'treeScaleTarget', 3.0, 40.0, 0.1).name('treeScale')
     folder.add(this.settings, 'treeCount', 50, 260, 1).name('treeCount')
     folder.add(this.settings, 'particlesPerTree', 200, 2600, 10).name('particlesPerTree')
     folder.add(this.settings, 'scaleMin', 0.3, 2.0, 0.01).name('scaleMin')
     folder.add(this.settings, 'scaleMax', 0.3, 2.5, 0.01).name('scaleMax')
-    folder.add(this.settings, 'terrainHeight', 0.0, 2.5, 0.01).name('terrainHeight')
+    folder
+      .add(this.settings, 'treesYOffset', -8, 8, 0.05)
+      .name('Trees Y vs floor')
+      .onChange(() => this.applyTreesGroundOffset())
     folder.add(this.settings, 'resampleNow').name('Resample Now')
-    folder.add(this.settings, 'pointSize', 0.002, 0.03, 0.0005).name('pointSize')
+    folder.add(this.settings, 'pointSize', 0.002, 0.06, 0.0005).name('pointSize')
       .onChange(() => this.points?.material?.uniforms.uSize && (this.points.material.uniforms.uSize.value = this.settings.pointSize))
     folder.add(this.settings, 'decaySpeed', 0.05, 1.5, 0.001).name('decaySpeed')
     folder.add(this.settings, 'lifeMix', 0.0, 1.0, 0.001).name('lifeMix')
-    folder.add(this.settings, 'minPointSize', 0.2, 3.0, 0.01).name('minPointSize')
-    folder.add(this.settings, 'maxPointSize', 2.0, 16.0, 0.1).name('maxPointSize')
+    folder.add(this.settings, 'minPointSize', 0.2, 6.0, 0.01).name('minPointSize')
+    folder.add(this.settings, 'maxPointSize', 2.0, 28.0, 0.1).name('maxPointSize')
     folder.addColor(this.dreamyColors, 'trunkLow').name('trunkLow').onChange(() => this.updateDreamyColors())
     folder.addColor(this.dreamyColors, 'trunkHigh').name('trunkHigh').onChange(() => this.updateDreamyColors())
     folder.addColor(this.dreamyColors, 'canopyLow').name('canopyLow').onChange(() => this.updateDreamyColors())

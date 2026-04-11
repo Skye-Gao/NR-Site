@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import Experience from './Experience.js'
+import { WORLD_GROUND_LEVEL_Y, walkCamera, getWalkEyeWorldY } from './World/worldGroundLevel.js'
 
 export default class Camera {
   constructor() {
@@ -16,7 +17,7 @@ export default class Camera {
     this.landingRotation = 0 // Slow rotation angle
 
     // Walk mode settings
-    this.walkPosition = new THREE.Vector3(0, 1.6, 0)
+    this.walkPosition = new THREE.Vector3(0, getWalkEyeWorldY(), 0)
     this.walkRotationY = 0 // Yaw angle (horizontal rotation)
     this.walkLookAtTarget = null // Target position to look at (keeps object centered)
 
@@ -71,7 +72,13 @@ export default class Camera {
 
   setupDebug() {
     if (!this.debug?.ui) return
-    
+
+    const walkFolder = this.debug.ui.addFolder('Walk camera')
+    walkFolder.close()
+    walkFolder
+      .add(walkCamera, 'eyeHeightAboveGround', 0.8, 2.8, 0.02)
+      .name('Height above floor')
+
     const folder = this.debug.ui.addFolder('Tree View Camera')
     folder.close()
     
@@ -224,7 +231,7 @@ export default class Camera {
       this.instance.position.lerp(targetPos, 0.015)
       
       // Look at center of the forest
-      this.instance.lookAt(0, 5, -15)
+      this.instance.lookAt(0, 5 + WORLD_GROUND_LEVEL_Y, -15)
       
     } else if (this.mode === 'walk') {
       // Apply position
@@ -267,11 +274,12 @@ export default class Camera {
       const z = this.treePosition.z + Math.cos(this.focusOrbitAngle) * this.focusOrbitRadius
       
       // Camera position - higher and farther at top for overview
-      const targetPosition = new THREE.Vector3(x, this.focusHeight, z)
+      const gy = WORLD_GROUND_LEVEL_Y
+      const targetPosition = new THREE.Vector3(x, this.focusHeight + gy, z)
       this.instance.position.lerp(targetPosition, 0.05)
       
       // Look at point - slightly below camera at top to see crowns from above
-      this.instance.lookAt(this.treePosition.x, this.focusLookAtHeight, this.treePosition.z)
+      this.instance.lookAt(this.treePosition.x, this.focusLookAtHeight + gy, this.treePosition.z)
       
     } else if (this.mode === 'exhibitionOrbit') {
       // Free orbit around the tree crown
@@ -279,11 +287,12 @@ export default class Camera {
       const z = this.treePosition.z + Math.cos(this.exhibitionOrbitAngle) * this.exhibitionOrbitRadius
       
       // Smooth position update
-      const targetPosition = new THREE.Vector3(x, this.exhibitionOrbitHeight, z)
+      const gy = WORLD_GROUND_LEVEL_Y
+      const targetPosition = new THREE.Vector3(x, this.exhibitionOrbitHeight + gy, z)
       this.instance.position.lerp(targetPosition, 0.08)
       
       // Look at tree crown
-      this.instance.lookAt(this.treePosition.x, this.exhibitionLookAtHeight, this.treePosition.z)
+      this.instance.lookAt(this.treePosition.x, this.exhibitionLookAtHeight + gy, this.treePosition.z)
       
     } else if (this.mode === 'showcaseOrbit') {
       // Free orbit around the tree roots
@@ -291,11 +300,12 @@ export default class Camera {
       const z = this.treePosition.z + Math.cos(this.showcaseOrbitAngle) * this.showcaseOrbitRadius
       
       // Smooth position update
-      const targetPosition = new THREE.Vector3(x, this.showcaseOrbitHeight, z)
+      const gy = WORLD_GROUND_LEVEL_Y
+      const targetPosition = new THREE.Vector3(x, this.showcaseOrbitHeight + gy, z)
       this.instance.position.lerp(targetPosition, 0.08)
       
       // Look at tree roots
-      this.instance.lookAt(this.treePosition.x, this.showcaseLookAtHeight, this.treePosition.z)
+      this.instance.lookAt(this.treePosition.x, this.showcaseLookAtHeight + gy, this.treePosition.z)
     }
   }
 

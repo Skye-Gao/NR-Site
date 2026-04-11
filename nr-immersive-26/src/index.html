@@ -8,8 +8,46 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- First-paint shell: avoids raw HTML flash before bundled CSS/JS run -->
+    <style id="app-boot-styles">
+      html, body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: #0a0a0a;
+      }
+      body.app-booting > :not(.loading-screen) {
+        visibility: hidden !important;
+      }
+      body.app-booting .loading-screen {
+        visibility: visible !important;
+        position: fixed;
+        inset: 0;
+        z-index: 2147483646;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #0a0a0a;
+        color: rgba(255, 255, 255, 0.6);
+        font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+        font-size: 14px;
+      }
+      body.app-booting .loading-screen .loading-spinner {
+        width: 40px;
+        height: 40px;
+        margin: 0 auto 16px;
+        border: 3px solid rgba(255, 255, 255, 0.12);
+        border-top-color: #5cdb5c;
+        border-radius: 50%;
+        animation: app-boot-spin 0.9s linear infinite;
+      }
+      @keyframes app-boot-spin {
+        to { transform: rotate(360deg); }
+      }
+    </style>
   </head>
-  <body data-page="landing" class="phase-landing">
+  <body data-page="landing" class="phase-landing app-booting">
     <canvas id="webgl" aria-label="3D forest scene"></canvas>
 
     <!-- Persistent Top Menu Bar -->
@@ -29,14 +67,15 @@
         <div class="center-content center-panel" data-scene="left">
           <div class="center-title">Panel Talk</div>
         </div>
-        <!-- Sphere scene (right): Livestream -->
-        <div class="center-content center-sphere" data-scene="right">
-          <div class="center-title">Livestream</div>
+        <!-- Sphere scene (right): same countdown label + timer as default forest view -->
+        <div class="center-content center-countdown" data-scene="right">
+          <div class="center-label">Livestream<br>Countdown</div>
+          <div class="countdown-time">00:00:00</div>
         </div>
       </div>
       <nav class="top-bar-nav">
-        <a href="#" class="nav-link">About Us</a>
-        <a href="#" class="nav-link">Schedule</a>
+        <a href="https://www.naturalresonance.world/about" class="nav-link" target="_blank" rel="noopener noreferrer">About Us</a>
+        <a href="https://www.naturalresonance.world/2026-nrf-events" class="nav-link" target="_blank" rel="noopener noreferrer">Schedule</a>
       </nav>
     </header>
 
@@ -106,9 +145,25 @@
               <line x1="7" y1="14" x2="7" y2="17"/>
             </svg>
           </span>
-          <span class="hint-text" id="scene-hint-text">Scroll to navigate/exit <span class="nav-scene-name" id="scene-hint-name">Livestream</span></span>
+          <span class="hint-text" id="scene-hint-text">Scroll to navigate <span class="nav-scene-name" id="scene-hint-name">Livestream</span></span>
         </div>
       </div>
+
+      <button type="button" class="livestream-info-btn" id="livestream-info-btn" aria-label="Festival information">
+        <span class="livestream-info-icon" aria-hidden="true">i</span>
+      </button>
+
+      <button type="button" class="exit-to-forest-btn" id="exit-to-forest-btn" aria-label="Exit to forest">
+        <span class="exit-to-forest-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M6 20V10a2 2 0 012-2h8a2 2 0 012 2v10"/>
+            <path d="M6 20h12"/>
+            <path d="M10 14h4"/>
+            <circle cx="15" cy="14" r="1" fill="currentColor" stroke="none"/>
+          </svg>
+        </span>
+        <span class="exit-to-forest-label">Exit to forest</span>
+      </button>
 
       <div class="sections-container">
         <div class="tree-hub-controls" id="tree-hub-controls">
@@ -203,20 +258,23 @@
 
     <!-- Video Popup Player -->
     <div class="video-popup" id="video-popup">
+      <!-- Outside .video-popup-content so fixed positioning is viewport-based (no transform ancestor). -->
+      <button type="button" class="video-popup-close" id="video-popup-close" aria-label="Close">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
       <div class="video-popup-content">
-        <button class="video-popup-close" id="video-popup-close" aria-label="Close">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
-        </button>
         <!-- Regular video player -->
         <video class="video-popup-player" id="video-popup-player" controls>
           <source src="" type="video/mp4">
         </video>
         <!-- YouTube/iframe embed container -->
         <div class="video-popup-iframe-container" id="video-popup-iframe-container">
-          <iframe id="video-popup-iframe" 
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" 
+          <iframe id="video-popup-iframe"
+            title="Video embed"
+            allow="autoplay; fullscreen; picture-in-picture; encrypted-media; web-share"
+            referrerpolicy="strict-origin-when-cross-origin"
             allowfullscreen>
           </iframe>
         </div>
@@ -293,11 +351,24 @@
           </svg>
         </button>
         <h2 class="scene-welcome-title" id="scene-welcome-title">Welcome to Panel Talk Stage</h2>
-        <p class="scene-welcome-description" id="scene-welcome-description">
-          Join us for insightful discussions with industry experts, artists, and thought leaders. 
+        <div class="scene-welcome-description" id="scene-welcome-description">
+          Join us for insightful discussions with industry experts, artists, and thought leaders.
           Explore the intersection of nature, technology, and creativity through engaging panel sessions.
-        </p>
+        </div>
         <button class="btn btn-primary scene-welcome-btn" id="scene-welcome-enter">Enter</button>
+      </div>
+    </div>
+
+    <!-- Livestream in-scene info (same copy as welcome; left-aligned, no Enter) -->
+    <div class="livestream-info-modal" id="livestream-info-modal" aria-hidden="true" role="dialog" aria-labelledby="livestream-info-title">
+      <div class="livestream-info-panel">
+        <button type="button" class="livestream-info-panel-close" id="livestream-info-close" aria-label="Close">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+        <h2 class="livestream-info-title" id="livestream-info-title"></h2>
+        <div class="livestream-info-body" id="livestream-info-body"></div>
       </div>
     </div>
 

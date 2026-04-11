@@ -1,5 +1,15 @@
 import * as THREE from 'three'
 import Experience from '../Experience.js'
+import { getWalkEyeWorldY } from './worldGroundLevel.js'
+
+/** Display gain vs livestream-style defaults; 0.7 ≈ 30% dimmer. */
+const PANEL_DISPLAY_BRIGHTNESS = 0.7
+
+/** Lateral pull toward landing (forest-side); scales left/right offsets only. */
+const PANEL_SCREEN_LATERAL_SCALE = 0.6
+
+/** Depth along the walk path; >1 spreads screens farther apart in the forward direction. */
+const PANEL_SCREEN_DEPTH_SCALE = 0.6 * 1.35
 
 export default class PanelTalkScene {
   constructor() {
@@ -21,6 +31,8 @@ export default class PanelTalkScene {
     this.videos = []
     this.videoTextures = []
     this.screens = []
+    /** One texture shared by all panel screens (NRF banner). */
+    this.sharedPosterTexture = null
 
     this.createScreens()
     
@@ -72,10 +84,17 @@ export default class PanelTalkScene {
 
     const entryLocal = this.viewerPoint.clone()
 
+    const posterPath = '/livestream/NRF 2026 Banner_Mainstage.png'
+    const posterUrl = encodeURI(posterPath)
+
     screenLayout.forEach((layout, i) => {
-      const pos = entryLocal.clone()
-        .add(forward.clone().multiplyScalar(layout.depth))
-        .add(right.clone().multiplyScalar(layout.lateral))
+      const depthPart = forward
+        .clone()
+        .multiplyScalar(layout.depth * PANEL_SCREEN_DEPTH_SCALE)
+      const lateralPart = right
+        .clone()
+        .multiplyScalar(layout.lateral * PANEL_SCREEN_LATERAL_SCALE)
+      const pos = entryLocal.clone().add(depthPart).add(lateralPart)
       pos.y = layout.height
 
       const h = layout.width / layout.aspect
@@ -85,12 +104,38 @@ export default class PanelTalkScene {
         videoIndex: i
       }
 
-      this.createVideoScreen(config, videoSources[i], this.videoTitles[i])
+      this.createVideoScreen(config, videoSources[i], this.videoTitles[i], posterUrl)
     })
+
+    new THREE.TextureLoader().load(
+      posterUrl,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace
+        tex.minFilter = THREE.LinearFilter
+        tex.magFilter = THREE.LinearFilter
+        this.sharedPosterTexture = tex
+        for (const screen of this.screens) {
+          if (!screen.material) continue
+          screen.material.map = tex
+          const g = 1.45 * PANEL_DISPLAY_BRIGHTNESS
+          screen.material.color.setRGB(g, g, g)
+          screen.material.needsUpdate = true
+          const bloomMat = screen.userData.bloomMaterial
+          if (bloomMat) {
+            bloomMat.map = tex
+            bloomMat.needsUpdate = true
+          }
+        }
+        this.experience.warmupSideStagePosterTexture?.(tex)
+        this.experience.kickSideStageShaderWarmup?.()
+      },
+      undefined,
+      () => console.warn('Panel Talk poster failed to load:', posterUrl)
+    )
   }
 
-  createVideoScreen(config, videoSrc, title = 'Video') {
-    // Create video element
+  createVideoScreen(config, videoSrc, title = 'Video', posterUrl = '') {
+    // Create video element (texture drives popup; mesh stays on shared poster)
     const video = document.createElement('video')
     video.src = videoSrc
     video.crossOrigin = 'anonymous'
@@ -98,68 +143,85 @@ export default class PanelTalkScene {
     video.muted = true
     video.playsInline = true
     video.preload = 'auto'
-    
+    if (posterUrl) video.poster = posterUrl
+
     this.videos.push(video)
 
-    // Create video texture
     const videoTexture = new THREE.VideoTexture(video)
     videoTexture.minFilter = THREE.LinearFilter
     videoTexture.magFilter = THREE.LinearFilter
     videoTexture.format = THREE.RGBAFormat
     videoTexture.colorSpace = THREE.SRGBColorSpace
-    
+
     this.videoTextures.push(videoTexture)
 
-    // Create screen geometry
     const geometry = new THREE.PlaneGeometry(config.size.width, config.size.height)
-    
-    // Create material with video texture
+
     const material = new THREE.MeshBasicMaterial({
-      map: videoTexture,
+      map: null,
+      color: 0x152018,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.95
+      opacity: 1,
+      toneMapped: false
     })
 
-    // Create screen mesh
     const screen = new THREE.Mesh(geometry, material)
     screen.position.copy(config.position)
-    
-    // Calculate Y rotation only to face toward user (keep screen vertical)
+
     const dirToViewer = new THREE.Vector3().subVectors(this.viewerPoint, config.position)
     const angle = Math.atan2(dirToViewer.x, dirToViewer.z)
     screen.rotation.y = angle
-    
+
     this.screens.push(screen)
     this.group.add(screen)
-    
-    // Store screen data for later registration
+
     screen.userData.videoSrc = videoSrc
     screen.userData.title = title
-    
-    // Delay registration until VideoPopup is available
+
     this.registerScreenWhenReady(screen, videoSrc, title)
 
-    // Add frame/border
+    const b = PANEL_DISPLAY_BRIGHTNESS
+    const bloomMaterial = new THREE.MeshBasicMaterial({
+      map: null,
+      transparent: true,
+      opacity: 0.48 * b,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      color: new THREE.Color(1.2 * b, 1.2 * b, 1.2 * b)
+    })
+    screen.userData.bloomMaterial = bloomMaterial
+    const bloomMesh = new THREE.Mesh(geometry, bloomMaterial)
+    bloomMesh.position.z = 0.022
+    bloomMesh.renderOrder = 4
+    screen.add(bloomMesh)
+
     const frameGeometry = new THREE.EdgesGeometry(geometry)
-    const frameMaterial = new THREE.LineBasicMaterial({ 
-      color: 0x333333,
-      linewidth: 2
+    const frameMaterial = new THREE.LineBasicMaterial({
+      color: 0x888888,
+      transparent: true,
+      opacity: 0.9,
+      toneMapped: false
     })
     const frame = new THREE.LineSegments(frameGeometry, frameMaterial)
+    frame.position.z = 0.045
+    frame.renderOrder = 2
     screen.add(frame)
 
-    // Add slight glow backing
     const backingGeometry = new THREE.PlaneGeometry(
-      config.size.width + 0.2, 
-      config.size.height + 0.2
+      config.size.width + 0.35,
+      config.size.height + 0.35
     )
     const backingMaterial = new THREE.MeshBasicMaterial({
       color: 0x111111,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      toneMapped: false
     })
     const backing = new THREE.Mesh(backingGeometry, backingMaterial)
-    backing.position.z = -0.05
+    backing.position.z = -0.08
+    backing.renderOrder = -1
     screen.add(backing)
 
     // Add label below screen
@@ -198,7 +260,7 @@ export default class PanelTalkScene {
     // Check if VideoPopup is available, if not wait and retry
     const tryRegister = () => {
       if (this.experience.videoPopup) {
-        this.experience.videoPopup.registerScreen(screen, videoSrc, title)
+        this.experience.videoPopup.registerScreen(screen, videoSrc, title, 'left')
       } else {
         setTimeout(tryRegister, 100)
       }
@@ -222,9 +284,15 @@ export default class PanelTalkScene {
   }
 
   update() {
-    // Update video textures
-    this.videoTextures.forEach(texture => {
-      if (texture.image && texture.image.readyState >= 2) {
+    // Keep video textures current for the popup; mesh stays on the shared poster.
+    this.videoTextures.forEach((texture) => {
+      const img = texture.image
+      if (
+        img &&
+        img.readyState >= 2 &&
+        img.videoWidth > 0 &&
+        img.videoHeight > 0
+      ) {
         texture.needsUpdate = true
       }
     })
@@ -246,7 +314,7 @@ export default class PanelTalkScene {
       // "In front of screen" means between the screen and the forest-side viewer direction.
       const toViewer = new THREE.Vector3().subVectors(viewerWorldPoint, screenWorld).normalize()
       const stopPos = screenWorld.clone().add(toViewer.multiplyScalar(stopDistance))
-      stopPos.y = 1.6
+      stopPos.y = getWalkEyeWorldY()
 
       stops.push({
         index,
@@ -266,20 +334,33 @@ export default class PanelTalkScene {
   }
 
   dispose() {
-    this.videos.forEach(video => {
+    this.videos.forEach((video) => {
       video.pause()
       video.src = ''
     })
-    
-    this.videoTextures.forEach(texture => {
+
+    this.videoTextures.forEach((texture) => {
       texture.dispose()
     })
-    
-    this.screens.forEach(screen => {
-      screen.geometry.dispose()
-      screen.material.dispose()
-    })
-    
+
+    const poster = this.sharedPosterTexture
+    this.sharedPosterTexture = null
+
+    const geometries = new Set()
+    for (const screen of this.screens) {
+      screen.traverse((obj) => {
+        if (obj.geometry) geometries.add(obj.geometry)
+        const mat = obj.material
+        if (!mat) return
+        if (mat.map && mat.map !== poster) mat.map.dispose()
+        if (mat.map === poster) mat.map = null
+        mat.dispose()
+      })
+    }
+    geometries.forEach((g) => g.dispose())
+
+    if (poster) poster.dispose()
+
     this.scene.remove(this.group)
   }
 }

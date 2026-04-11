@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import Experience from '../Experience.js'
+import { WORLD_GROUND_LEVEL_Y } from './worldGroundLevel.js'
 
 export default class MainTree {
   constructor() {
@@ -8,7 +9,7 @@ export default class MainTree {
     this.debug = this.experience.debug
 
     // Tree position - front vertex of equilateral triangle (60 units from center)
-    this.treePosition = new THREE.Vector3(0, 0, -60)
+    this.treePosition = new THREE.Vector3(0, WORLD_GROUND_LEVEL_Y, -60)
 
     this.sectionPoints = {
       showcase: new THREE.Vector3(0, -10, -60),   // Underground - Special Showcase (roots)

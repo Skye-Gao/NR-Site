@@ -1,6 +1,9 @@
 import * as THREE from 'three'
-import Hls from 'hls.js'
 import Experience from '../Experience.js'
+
+/** Vimeo Live Event embed (popup); mesh uses static poster — iframe cannot drive WebGL textures. */
+const VIMEO_MAINSTAGE_EMBED_URL =
+  'https://vimeo.com/event/5861006/embed/abacdbb082/interaction'
 
 export default class LivestreamScene {
   constructor() {
@@ -18,175 +21,168 @@ export default class LivestreamScene {
 
     this.group = new THREE.Group()
     this.group.position.copy(this.position)
-    
-    this.video = null
-    this.videoTexture = null
+
+    this.posterTexture = null
     this.screen = null
-    this.hls = null
+    /** 3D screen stays on the static poster; stream plays in the HTML popup (Vimeo embed). */
+    this.posterOnMesh = true
+    this.posterLoadSettled = false
+    this.screenBloomMaterial = null
 
     this.createScreen()
-    
+
     this.scene.add(this.group)
   }
 
   createScreen() {
-    // Calculate the viewer position relative to scene (user approaches from forest center)
     const viewerDirection = this.position.clone().negate().normalize()
     const viewerPoint = viewerDirection.multiplyScalar(15)
-    
-    // HLS Live Stream URL
-    // Using a reliable test stream (Big Buck Bunny HLS - loops continuously)
-    // Replace with your own HLS stream URL (.m3u8) when ready
-    this.hlsStreamUrl = 'https://test-streams.mux.dev/x36xhzz/x36xhzz.m3u8'
-    
-    // Fallback video if HLS fails
-    const fallbackVideoSrc = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
 
-    // Create video element
-    this.video = document.createElement('video')
-    this.video.crossOrigin = 'anonymous'
-    this.video.loop = false  // Live streams don't loop
-    this.video.muted = true
-    this.video.playsInline = true
-    this.video.preload = 'auto'
-    
-    // Setup HLS streaming
-    this.setupHLS(fallbackVideoSrc)
+    const posterPath = '/livestream/NRF 2026 Banner_Mainstage.png'
+    const posterUrl = encodeURI(posterPath)
 
-    // Create video texture (after video element is setup)
-    this.videoTexture = new THREE.VideoTexture(this.video)
-    this.videoTexture.minFilter = THREE.LinearFilter
-    this.videoTexture.magFilter = THREE.LinearFilter
-    this.videoTexture.format = THREE.RGBAFormat
-    this.videoTexture.colorSpace = THREE.SRGBColorSpace
-
-    // Create large screen geometry (16:9 aspect ratio)
-    const screenWidth = 16
-    const screenHeight = 9
+    this.displayScale = 1.2
+    const screenWidth = 16 * this.displayScale
+    const screenHeight = 9 * this.displayScale
     const geometry = new THREE.PlaneGeometry(screenWidth, screenHeight)
-    
-    // Create material with video texture
+
+    const textureLoader = new THREE.TextureLoader()
+    textureLoader.load(
+      posterUrl,
+      (tex) => {
+        tex.colorSpace = THREE.SRGBColorSpace
+        tex.minFilter = THREE.LinearFilter
+        tex.magFilter = THREE.LinearFilter
+        this.posterTexture = tex
+        this.posterLoadSettled = true
+        this.posterOnMesh = true
+        if (this.screen?.material) {
+          this.screen.material.map = tex
+          this.screen.material.color.setRGB(1.45, 1.45, 1.45)
+          this.screen.material.needsUpdate = true
+        }
+        if (this.screenBloomMaterial) {
+          this.screenBloomMaterial.map = tex
+          this.screenBloomMaterial.needsUpdate = true
+        }
+        this.experience.warmupSideStagePosterTexture?.(tex)
+        this.experience.kickSideStageShaderWarmup?.()
+      },
+      undefined,
+      () => {
+        console.warn('Livestream poster failed to load:', posterUrl)
+        this.posterLoadSettled = true
+        this.posterOnMesh = false
+      }
+    )
+
     const material = new THREE.MeshBasicMaterial({
-      map: this.videoTexture,
+      color: 0x152018,
+      map: null,
       side: THREE.DoubleSide,
       transparent: true,
-      opacity: 0.98
+      opacity: 1,
+      toneMapped: false
     })
 
-    // Create screen mesh - centered at comfortable viewing height
     this.screen = new THREE.Mesh(geometry, material)
-    this.screen.position.set(0, 6, 0)  // Higher position so camera looks up at it slightly
-    
-    // Calculate Y rotation only to face toward user (keep screen vertical)
+    this.screen.position.set(0, 6, 0)
+
     const viewerPointFlat = new THREE.Vector3(viewerPoint.x, 0, viewerPoint.z)
     const angle = Math.atan2(viewerPointFlat.x, viewerPointFlat.z)
     this.screen.rotation.y = angle
-    
+
     this.group.add(this.screen)
-    
-    // Store info for popup
-    this.videoTitle = 'Live Stream'
-    
-    // Delay registration until VideoPopup is available
-    // Use the same HLS stream URL for the popup
-    this.registerScreenWhenReady(this.screen, this.hlsStreamUrl, this.videoTitle)
 
-    // Add frame/border
-    const frameGeometry = new THREE.EdgesGeometry(geometry)
-    const frameMaterial = new THREE.LineBasicMaterial({ 
-      color: 0x444444,
-      linewidth: 2
+    this.screenBloomMaterial = new THREE.MeshBasicMaterial({
+      map: null,
+      transparent: true,
+      opacity: 0.48,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+      toneMapped: false,
+      color: new THREE.Color(1.2, 1.2, 1.2)
     })
-    const frame = new THREE.LineSegments(frameGeometry, frameMaterial)
-    this.screen.add(frame)
+    const screenBloom = new THREE.Mesh(geometry, this.screenBloomMaterial)
+    screenBloom.position.z = 0.022
+    screenBloom.renderOrder = 4
+    this.screen.add(screenBloom)
 
-    // Add backing
-    const backingGeometry = new THREE.PlaneGeometry(screenWidth + 0.3, screenHeight + 0.3)
+    this.videoTitle = 'Natural Resonance Festival 2026'
+
+    this.registerScreenWhenReady(this.screen, VIMEO_MAINSTAGE_EMBED_URL, this.videoTitle)
+
+    const backingMargin = 0.35 * this.displayScale
+    const backingGeometry = new THREE.PlaneGeometry(
+      screenWidth + backingMargin,
+      screenHeight + backingMargin
+    )
     const backingMaterial = new THREE.MeshBasicMaterial({
       color: 0x111111,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      toneMapped: false
     })
     const backing = new THREE.Mesh(backingGeometry, backingMaterial)
-    backing.position.z = -0.05
+    backing.position.z = -0.08
+    backing.renderOrder = -1
     this.screen.add(backing)
 
-    // Add label below screen
+    const edgeGeo = new THREE.EdgesGeometry(geometry)
+    const frame = new THREE.LineSegments(
+      edgeGeo,
+      new THREE.LineBasicMaterial({
+        color: 0x888888,
+        transparent: true,
+        opacity: 0.9,
+        toneMapped: false
+      })
+    )
+    frame.position.z = 0.045
+    frame.renderOrder = 2
+    this.screen.add(frame)
+
     this.addScreenLabel()
   }
 
   addScreenLabel() {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
-    canvas.width = 512
-    canvas.height = 64
-    
+    canvas.width = 1024
+    canvas.height = 128
+
     ctx.fillStyle = 'transparent'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
-    ctx.font = 'bold 28px Arial'
+
+    ctx.font = 'bold 34px Arial'
     ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
     ctx.textAlign = 'center'
-    ctx.fillText('LIVE', canvas.width / 2, 40)
-    
+    ctx.textBaseline = 'middle'
+    ctx.fillText('Livestream of Festival', canvas.width / 2, canvas.height / 2)
+
     const labelTexture = new THREE.CanvasTexture(canvas)
-    const labelGeometry = new THREE.PlaneGeometry(3, 0.6)
+    labelTexture.colorSpace = THREE.SRGBColorSpace
+
+    // Plane aspect must match canvas aspect or the texture stretches on the mesh.
+    const texAspect = canvas.width / canvas.height
+    const labelH = 0.55 * this.displayScale
+    const labelW = labelH * texAspect
+    const labelGeometry = new THREE.PlaneGeometry(labelW, labelH)
     const labelMaterial = new THREE.MeshBasicMaterial({
       map: labelTexture,
       transparent: true,
       side: THREE.DoubleSide
     })
-    
+
     const label = new THREE.Mesh(labelGeometry, labelMaterial)
-    label.position.y = -5  // Below the screen
+    label.position.y = -5 * this.displayScale
     this.screen.add(label)
   }
 
-  setupHLS(fallbackVideoSrc) {
-    // Check if HLS is supported
-    if (Hls.isSupported()) {
-      this.hls = new Hls({
-        enableWorker: true,
-        lowLatencyMode: true,
-        backBufferLength: 90
-      })
-      
-      this.hls.loadSource(this.hlsStreamUrl)
-      this.hls.attachMedia(this.video)
-      
-      this.hls.on(Hls.Events.MANIFEST_PARSED, () => {
-        console.log('HLS manifest loaded - Live stream ready')
-        // Auto-play when manifest is ready
-        this.video.play().catch(e => {
-          console.log('HLS autoplay blocked, will play on scene enter')
-        })
-      })
-      
-      this.hls.on(Hls.Events.ERROR, (event, data) => {
-        if (data.fatal) {
-          console.warn('HLS fatal error, falling back to regular video:', data.type)
-          this.hls.destroy()
-          this.hls = null
-          // Fallback to regular video
-          this.video.src = fallbackVideoSrc
-          this.video.loop = true
-        }
-      })
-    } else if (this.video.canPlayType('application/vnd.apple.mpegurl')) {
-      // Native HLS support (Safari)
-      this.video.src = this.hlsStreamUrl
-    } else {
-      // No HLS support, use fallback
-      console.log('HLS not supported, using fallback video')
-      this.video.src = fallbackVideoSrc
-      this.video.loop = true
-    }
-  }
-
-  registerScreenWhenReady(screen, videoSrc, title) {
-    // Check if VideoPopup is available, if not wait and retry
+  registerScreenWhenReady(screen, embedUrl, title) {
     const tryRegister = () => {
       if (this.experience.videoPopup) {
-        this.experience.videoPopup.registerScreen(screen, videoSrc, title)
+        this.experience.videoPopup.registerScreen(screen, embedUrl, title, 'right')
       } else {
         setTimeout(tryRegister, 100)
       }
@@ -194,47 +190,28 @@ export default class LivestreamScene {
     tryRegister()
   }
 
-  playVideo() {
-    if (this.video) {
-      this.video.play().catch(e => {
-        console.log('Video autoplay blocked, user interaction needed')
-      })
-    }
-  }
+  playVideo() {}
 
-  pauseVideo() {
-    if (this.video) {
-      this.video.pause()
-    }
-  }
+  pauseVideo() {}
 
-  update() {
-    if (this.videoTexture && this.video && this.video.readyState >= 2) {
-      this.videoTexture.needsUpdate = true
-    }
-  }
+  update() {}
 
   dispose() {
-    // Clean up HLS
-    if (this.hls) {
-      this.hls.destroy()
-      this.hls = null
+    if (this.posterTexture) {
+      this.posterTexture.dispose()
+      this.posterTexture = null
     }
-    
-    if (this.video) {
-      this.video.pause()
-      this.video.src = ''
+
+    if (this.screenBloomMaterial) {
+      this.screenBloomMaterial.dispose()
+      this.screenBloomMaterial = null
     }
-    
-    if (this.videoTexture) {
-      this.videoTexture.dispose()
-    }
-    
+
     if (this.screen) {
       this.screen.geometry.dispose()
       this.screen.material.dispose()
     }
-    
+
     this.scene.remove(this.group)
   }
 }

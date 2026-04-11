@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import gsap from 'gsap'
 import Experience from './Experience.js'
+import { WORLD_GROUND_LEVEL_Y, getWalkEyeWorldY } from './World/worldGroundLevel.js'
 
 export default class Sections {
   constructor() {
@@ -121,11 +122,13 @@ export default class Sections {
     this.treeHubControls.style.pointerEvents = p >= 0.98 ? 'auto' : 'none'
   }
 
-  hide() {
+  hide(options = {}) {
+    const skipOrbitCameraReset = options.skipOrbitCameraReset === true
+    const skipTreeBodyPhase = options.skipTreeBodyPhase === true
     this.visible = false
     this.hideTreeHub()
-    this.exitExhibitionOrbit()
-    this.exitShowcaseOrbit()
+    this.exitExhibitionOrbit(skipOrbitCameraReset, skipTreeBodyPhase)
+    this.exitShowcaseOrbit(skipOrbitCameraReset, skipTreeBodyPhase)
     if (this.container) {
       this.container.classList.remove('is-visible')
     }
@@ -204,7 +207,7 @@ export default class Sections {
     }
   }
   
-  exitExhibitionOrbit(skipCameraReset = false) {
+  exitExhibitionOrbit(skipCameraReset = false, skipBodyTreePhase = false) {
     if (!this.inExhibitionOrbit) return
     
     this.inExhibitionOrbit = false
@@ -216,7 +219,9 @@ export default class Sections {
     
     // Update body class
     document.body.classList.remove('phase-exhibition-orbit')
-    document.body.classList.add('phase-tree')
+    if (!skipBodyTreePhase) {
+      document.body.classList.add('phase-tree')
+    }
     
     // Return navigation orbit mode
     if (this.experience.navigation) {
@@ -319,6 +324,7 @@ export default class Sections {
     this.hideShowcaseEntry()
 
     const treeZ = cam.treePosition.z
+    const gy = WORLD_GROUND_LEVEL_Y
     const startPos = cam.instance.position.clone()
     const startLookAt = this.targetsLookAtFromMode(cam)
 
@@ -327,13 +333,13 @@ export default class Sections {
     if (type === 'exhibition') {
       const x = Math.sin(cam.exhibitionOrbitAngle) * cam.exhibitionOrbitRadius
       const z = treeZ + Math.cos(cam.exhibitionOrbitAngle) * cam.exhibitionOrbitRadius
-      endPos = new THREE.Vector3(x, cam.exhibitionOrbitHeight, z)
-      endLookAt = new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight, treeZ)
+      endPos = new THREE.Vector3(x, cam.exhibitionOrbitHeight + gy, z)
+      endLookAt = new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight + gy, treeZ)
     } else {
       const x = Math.sin(cam.showcaseOrbitAngle) * cam.showcaseOrbitRadius
       const z = treeZ + Math.cos(cam.showcaseOrbitAngle) * cam.showcaseOrbitRadius
-      endPos = new THREE.Vector3(x, cam.showcaseOrbitHeight, z)
-      endLookAt = new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight, treeZ)
+      endPos = new THREE.Vector3(x, cam.showcaseOrbitHeight + gy, z)
+      endLookAt = new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight + gy, treeZ)
     }
 
     cam.mode = 'transitioning'
@@ -358,7 +364,7 @@ export default class Sections {
           cam.setExhibitionOrbitMode()
           cam.exhibitionOrbitAngle = Math.atan2(endPos.x, endPos.z - treeZ)
           cam.exhibitionOrbitRadius = Math.hypot(endPos.x, endPos.z - treeZ)
-          cam.exhibitionOrbitHeight = endPos.y
+          cam.exhibitionOrbitHeight = endPos.y - WORLD_GROUND_LEVEL_Y
 
           // Crown mode visuals
           if (this.experience.world?.exhibitionNodes) this.experience.world.exhibitionNodes.show()
@@ -376,7 +382,7 @@ export default class Sections {
           cam.setShowcaseOrbitMode()
           cam.showcaseOrbitAngle = Math.atan2(endPos.x, endPos.z - treeZ)
           cam.showcaseOrbitRadius = Math.hypot(endPos.x, endPos.z - treeZ)
-          cam.showcaseOrbitHeight = endPos.y
+          cam.showcaseOrbitHeight = endPos.y - WORLD_GROUND_LEVEL_Y
 
           // Root mode visuals
           if (this.experience.world?.showcaseNodes) this.experience.world.showcaseNodes.show()
@@ -393,19 +399,22 @@ export default class Sections {
 
   targetsLookAtFromMode(cam) {
     const treeZ = cam.treePosition.z
+    const gy = WORLD_GROUND_LEVEL_Y
     if (cam.mode === 'walk') {
-      return cam.walkLookAtTarget ? cam.walkLookAtTarget.clone() : new THREE.Vector3(cam.treePosition.x, 2, treeZ)
+      return cam.walkLookAtTarget
+        ? cam.walkLookAtTarget.clone()
+        : new THREE.Vector3(cam.treePosition.x, 2 + gy, treeZ)
     }
     if (cam.mode === 'showcaseOrbit') {
-      return new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight, treeZ)
+      return new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight + gy, treeZ)
     }
     if (cam.mode === 'exhibitionOrbit') {
-      return new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight, treeZ)
+      return new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight + gy, treeZ)
     }
-    return new THREE.Vector3(cam.treePosition.x, cam.focusLookAtHeight, treeZ)
+    return new THREE.Vector3(cam.treePosition.x, cam.focusLookAtHeight + gy, treeZ)
   }
   
-  exitShowcaseOrbit(skipCameraReset = false) {
+  exitShowcaseOrbit(skipCameraReset = false, skipBodyTreePhase = false) {
     if (!this.inShowcaseOrbit) return
     
     this.inShowcaseOrbit = false
@@ -417,7 +426,9 @@ export default class Sections {
     
     // Update body class
     document.body.classList.remove('phase-showcase-orbit')
-    document.body.classList.add('phase-tree')
+    if (!skipBodyTreePhase) {
+      document.body.classList.add('phase-tree')
+    }
     
     // Show floor again when exiting underground
     if (this.experience.world?.floor) {
@@ -463,17 +474,18 @@ export default class Sections {
     const endCamPos = nav.startPosition.clone().add(
       forward.clone().multiplyScalar(nav.treeHubDistanceFromStart)
     )
-    endCamPos.y = 1.6
+    endCamPos.y = getWalkEyeWorldY()
     const endLookAt = nav.targets.front.position.clone()
 
     const startCamPos = cam.instance.position.clone()
     
     // Determine start look-at from current orbit mode
     let startLookAt
+    const gy = WORLD_GROUND_LEVEL_Y
     if (wasInExhibition) {
-      startLookAt = new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight, cam.treePosition.z)
+      startLookAt = new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight + gy, cam.treePosition.z)
     } else {
-      startLookAt = new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight, cam.treePosition.z)
+      startLookAt = new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight + gy, cam.treePosition.z)
     }
     
     // Disable navigation during transition

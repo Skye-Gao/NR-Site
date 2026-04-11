@@ -14,6 +14,7 @@ import Sections from './Sections.js'
 import VideoPopup from './VideoPopup.js'
 
 import sources from './sources.js'
+import { WORLD_GROUND_LEVEL_Y, getWalkEyeWorldY } from './World/worldGroundLevel.js'
 
 let instance = null
 
@@ -39,9 +40,16 @@ export default class Experience {
     this.phase = 'landing'
     this.isTransitioning = false
 
+    /** Pre-upload posters + pre-compile side-stage shaders so the first swing does not hitch. */
+    this._sideStageShaderWarmupFallbackId = null
+    this._sideStageWarmupDebounceId = null
+    this._sideStageWarmupRunning = false
+    this._sideStageWarmupPending = false
+
     this.loadingScreen = document.querySelector('.loading-screen')
     this.forestHint = document.querySelector('.forest-hint')
     this.landingPage = document.querySelector('.landing-page')
+    this.logoButton = document.querySelector('.top-bar-logo')
 
     // Hide landing page UI immediately
     if (this.landingPage) {
@@ -66,6 +74,72 @@ export default class Experience {
     }
 
     this.setupLandingPage()
+    this.setupLogoNavigation()
+  }
+
+  setupLogoNavigation() {
+    if (!this.logoButton) return
+    this.logoButton.style.cursor = 'pointer'
+    this.logoButton.addEventListener('click', () => this.onLogoClick())
+  }
+
+  onLogoClick() {
+    // If user hasn't passed welcome yet, stay on welcome page.
+    if (this.phase === 'landing') return
+    if (this.isTransitioning) return
+
+    // Tree phase already has a dedicated transition back.
+    if (this.phase === 'tree') {
+      this.transitionToForest()
+      return
+    }
+
+    // Forest phase: return to the forest landing position smoothly.
+    if (this.phase === 'forest') {
+      this.returnToForestLanding()
+    }
+  }
+
+  returnToForestLanding() {
+    if (this.isTransitioning) return
+    this.isTransitioning = true
+
+    // If currently in side scene, notify world to pause scene content.
+    if (this.navigation.currentTarget !== 'front' && this.world?.onExitScene) {
+      this.world.onExitScene(this.navigation.currentTarget)
+    }
+
+    // Hide any blocking overlays before transition.
+    if (this.navigation?.hideExitConfirmation) this.navigation.hideExitConfirmation()
+    if (this.navigation?.sceneWelcome) this.navigation.sceneWelcome.classList.remove('is-visible')
+    if (this.navigation?.closeLivestreamInfoModal) this.navigation.closeLivestreamInfoModal()
+
+    const endCamPos = this.navigation.startPosition.clone()
+    const endLookAt = this.navigation.targets.front.position.clone()
+    const startCamPos = this.camera.instance.position.clone()
+    const startLookAt = this.navigation.targets[this.navigation.currentTarget]?.position?.clone() || endLookAt.clone()
+
+    this.camera.mode = 'transitioning'
+    const progress = { value: 0 }
+    gsap.to(progress, {
+      value: 1,
+      duration: 2,
+      ease: 'sine.inOut',
+      onUpdate: () => {
+        const t = progress.value
+        this.camera.instance.position.lerpVectors(startCamPos, endCamPos, t)
+        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
+        this.camera.instance.lookAt(look)
+      },
+      onComplete: () => {
+        this.navigation.resetToStart()
+        this.navigation.enabled = true
+        this.camera.walkPosition.copy(endCamPos)
+        this.camera.walkLookAtTarget = endLookAt.clone()
+        this.camera.setWalkMode()
+        this.isTransitioning = false
+      }
+    })
   }
 
   setupLandingPage() {
@@ -98,8 +172,23 @@ export default class Experience {
     this.countdownTarget = new Date('2026-04-11T18:00:00Z')
     
     this.countdownElement = document.getElementById('countdown-timer')
+    this.countdownInterval = null
+    this._livestreamCountdownExpiredApplied = false
     this.updateCountdown()
     this.countdownInterval = setInterval(() => this.updateCountdown(), 1000)
+  }
+
+  /** When target time passes: hide numeric countdown; label → “Livestream / Main Stage”. */
+  applyLivestreamCountdownExpired() {
+    if (this._livestreamCountdownExpiredApplied) return
+    this._livestreamCountdownExpiredApplied = true
+
+    const center = document.querySelector('.top-bar-center')
+    center?.classList.add('countdown-expired')
+
+    document.querySelectorAll('.center-countdown .center-label').forEach((el) => {
+      el.innerHTML = 'Livestream<br>Main Stage'
+    })
   }
 
   validateTicketCode() {
@@ -131,29 +220,42 @@ export default class Experience {
   }
 
   updateCountdown() {
-    if (!this.countdownElement) return
-    
+    const slots = document.querySelectorAll('.top-bar-center .countdown-time')
+    if (!slots.length && !this.countdownElement) return
+
     const now = new Date()
     const diff = this.countdownTarget - now
-    
+
+    const apply = (text) => {
+      slots.forEach((el) => {
+        el.textContent = text
+      })
+      if (!slots.length && this.countdownElement) {
+        this.countdownElement.textContent = text
+      }
+    }
+
     if (diff <= 0) {
-      this.countdownElement.textContent = '00:00:00'
-      clearInterval(this.countdownInterval)
+      this.applyLivestreamCountdownExpired()
+      if (this.countdownInterval != null) {
+        clearInterval(this.countdownInterval)
+        this.countdownInterval = null
+      }
       return
     }
-    
+
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
     const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
     const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-    
+
     const hh = hours.toString().padStart(2, '0')
     const mm = minutes.toString().padStart(2, '0')
     const ss = seconds.toString().padStart(2, '0')
-    
-    this.countdownElement.textContent = days >= 1
-      ? `${days}d ${hh}:${mm}:${ss}`
-      : `${hh}:${mm}:${ss}`
+
+    const text =
+      days >= 1 ? `${days}d ${hh}:${mm}:${ss}` : `${hh}:${mm}:${ss}`
+    apply(text)
   }
 
   enterExperience() {
@@ -211,11 +313,99 @@ export default class Experience {
         this.camera.setWalkMode()
         this.navigation.enabled = true
         this.isTransitioning = false
+
+        this.scheduleSideStageShaderWarmupFallback()
       }
     })
   }
 
+  /**
+   * Push a decoded poster to the GPU early so the first in-frustum draw does not upload it synchronously.
+   */
+  warmupSideStagePosterTexture(texture) {
+    const r = this.renderer?.instance
+    if (!texture || !r?.initTexture) return
+    try {
+      r.initTexture(texture)
+    } catch {
+      /* ignore */
+    }
+  }
+
+  /**
+   * Debounced shader pre-compile from Panel Talk / Livestream approach angles.
+   * Runs again if a second poster finishes while a pass is still running.
+   */
+  kickSideStageShaderWarmup() {
+    if (this._sideStageWarmupDebounceId != null) {
+      clearTimeout(this._sideStageWarmupDebounceId)
+    }
+    this._sideStageWarmupDebounceId = setTimeout(() => {
+      this._sideStageWarmupDebounceId = null
+      void this.runSideStageShaderWarmup()
+    }, 120)
+  }
+
+  /**
+   * If posters are slow, still compile once after idle (throwaway camera; does not move the user camera).
+   */
+  scheduleSideStageShaderWarmupFallback() {
+    if (this._sideStageShaderWarmupFallbackId != null) return
+    this._sideStageShaderWarmupFallbackId = setTimeout(() => {
+      this._sideStageShaderWarmupFallbackId = null
+      this.kickSideStageShaderWarmup()
+    }, 2500)
+  }
+
+  async runSideStageShaderWarmup() {
+    if (this._sideStageWarmupRunning) {
+      this._sideStageWarmupPending = true
+      return
+    }
+    this._sideStageWarmupRunning = true
+    this._sideStageWarmupPending = false
+
+    const r = this.renderer?.instance
+    const nav = this.navigation
+    const mainCam = this.camera?.instance
+
+    try {
+      if (!r || !nav || !mainCam) return
+
+      const wCam = new THREE.PerspectiveCamera(
+        mainCam.fov,
+        mainCam.aspect,
+        mainCam.near,
+        mainCam.far
+      )
+
+      const compileView = r.compileAsync
+        ? (cam) => r.compileAsync(this.scene, cam)
+        : (cam) => {
+            r.compile(this.scene, cam)
+            return Promise.resolve()
+          }
+
+      for (const key of ['left', 'right']) {
+        const targetObj = nav.targets[key]
+        const dir = new THREE.Vector3()
+          .subVectors(targetObj.position, nav.startPosition)
+          .normalize()
+        const pos = nav.startPosition.clone().add(dir.multiplyScalar(nav.approachDistance))
+        pos.y = getWalkEyeWorldY()
+        wCam.position.copy(pos)
+        wCam.lookAt(targetObj.position)
+        wCam.updateMatrixWorld(true)
+        await compileView(wCam)
+      }
+    } finally {
+      this._sideStageWarmupRunning = false
+      if (this._sideStageWarmupPending) void this.runSideStageShaderWarmup()
+    }
+  }
+
   hideLoadingScreen() {
+    document.body.classList.remove('app-booting')
     if (this.loadingScreen) {
       this.loadingScreen.classList.add('is-hidden')
     }
@@ -259,7 +449,7 @@ export default class Experience {
     const endCamPos = this.navigation.startPosition.clone().add(
       treeForward.multiplyScalar(this.navigation.treeHubDistanceFromStart)
     )
-    endCamPos.y = 1.6
+    endCamPos.y = getWalkEyeWorldY()
     const startLookAt = this.navigation.targets.front.position.clone()
     const endLookAt = this.navigation.targets.front.position.clone()
 
@@ -295,17 +485,28 @@ export default class Experience {
     this.isTransitioning = true
     this.phase = 'forest'
 
-    document.body.classList.remove('phase-tree')
+    document.body.classList.remove('phase-tree', 'phase-exhibition-orbit', 'phase-showcase-orbit')
     document.body.classList.add('phase-forest')
     
     // Update top bar center to show countdown
     this.navigation.updateTopBarCenter('default')
 
-    this.sections.hide()
-
     const startCamPos = this.camera.instance.position.clone()
+    const treeZ = this.camera.treePosition.z
+    const gy = WORLD_GROUND_LEVEL_Y
+    let startLookAt = new THREE.Vector3(0, this.camera.focusLookAtHeight + gy, treeZ)
+    if (this.camera.mode === 'exhibitionOrbit') {
+      startLookAt.set(this.camera.treePosition.x, this.camera.exhibitionLookAtHeight + gy, treeZ)
+    } else if (this.camera.mode === 'showcaseOrbit') {
+      startLookAt.set(this.camera.treePosition.x, this.camera.showcaseLookAtHeight + gy, treeZ)
+    }
+
+    this.sections.hide({ skipOrbitCameraReset: true, skipTreeBodyPhase: true })
+
+    if (this.world?.exhibitionNodes) this.world.exhibitionNodes.hide()
+    if (this.world?.showcaseNodes) this.world.showcaseNodes.hide()
+
     const endCamPos = this.navigation.startPosition.clone()
-    const startLookAt = new THREE.Vector3(0, this.camera.focusLookAtHeight, -60)
     const endLookAt = this.navigation.targets.front.position.clone()
 
     this.camera.mode = 'transitioning'
@@ -323,6 +524,7 @@ export default class Experience {
       },
       onComplete: () => {
         this.navigation.resetToStart()
+        this.navigation.enabled = true
         this.camera.walkPosition.copy(endCamPos)
         this.camera.walkLookAtTarget = endLookAt.clone()
         this.camera.setWalkMode()
@@ -332,6 +534,15 @@ export default class Experience {
   }
 
   dispose() {
+    if (this._sideStageShaderWarmupFallbackId != null) {
+      clearTimeout(this._sideStageShaderWarmupFallbackId)
+      this._sideStageShaderWarmupFallbackId = null
+    }
+    if (this._sideStageWarmupDebounceId != null) {
+      clearTimeout(this._sideStageWarmupDebounceId)
+      this._sideStageWarmupDebounceId = null
+    }
+
     this.sizes.off('resize')
     this.time.off('tick')
 

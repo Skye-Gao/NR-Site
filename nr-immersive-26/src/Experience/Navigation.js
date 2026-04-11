@@ -1,6 +1,11 @@
 import * as THREE from 'three'
 import gsap from 'gsap'
 import Experience from './Experience.js'
+import {
+  LIVESTREAM_WELCOME_TITLE,
+  LIVESTREAM_WELCOME_HTML
+} from './Utils/livestreamWelcomeContent.js'
+import { WORLD_GROUND_LEVEL_Y, getWalkEyeWorldY } from './World/worldGroundLevel.js'
 
 export default class Navigation {
   constructor() {
@@ -13,7 +18,7 @@ export default class Navigation {
     this.enabled = true
 
     // Starting position - center of equilateral triangle
-    this.startPosition = new THREE.Vector3(0, 1.6, 0)
+    this.startPosition = new THREE.Vector3(0, getWalkEyeWorldY(), 0)
     this.position = this.startPosition.clone()
 
     // Distance from center to each vertex
@@ -23,13 +28,13 @@ export default class Navigation {
     // Tree at front (0°), Cube at back-left (120°), Sphere at back-right (-120°)
     this.targets = {
       front: { 
-        position: new THREE.Vector3(0, 2, -this.targetDistance), 
+        position: new THREE.Vector3(0, 2 + WORLD_GROUND_LEVEL_Y, -this.targetDistance), 
         angle: 0 
       },
       left: { 
         position: new THREE.Vector3(
           -this.targetDistance * Math.sin(Math.PI * 2 / 3),  // -21.65
-          2, 
+          2 + WORLD_GROUND_LEVEL_Y, 
           -this.targetDistance * Math.cos(Math.PI * 2 / 3)   // 12.5
         ), 
         angle: Math.PI * 2 / 3  // 120 degrees
@@ -37,7 +42,7 @@ export default class Navigation {
       right: { 
         position: new THREE.Vector3(
           -this.targetDistance * Math.sin(-Math.PI * 2 / 3), // 21.65
-          6,  // Higher to look at center of livestream screen
+          6 + WORLD_GROUND_LEVEL_Y,  // Livestream screen center (group + screen local Y)
           -this.targetDistance * Math.cos(-Math.PI * 2 / 3)  // 12.5
         ), 
         angle: -Math.PI * 2 / 3  // -120 degrees
@@ -83,6 +88,7 @@ export default class Navigation {
     this.mouseLookStrength = 2.0  // How much the view follows the mouse
     this.defaultMouseLookStrength = 2.0
     this.panelTalkMouseLookStrength = 0.8
+    this.livestreamMouseLookStrength = 0.8
     this.mouseX = 0  // -1 to 1 (left to right)
     this.mouseY = 0  // -1 to 1 (top to bottom)
     this.currentMouseX = 0  // Smoothed value
@@ -168,13 +174,14 @@ export default class Navigation {
     
     // Scene welcome popup
     this.sceneWelcome = document.getElementById('scene-welcome')
+    this.sceneWelcomeContent = document.querySelector('.scene-welcome-content')
     this.sceneWelcomeTitle = document.getElementById('scene-welcome-title')
     this.sceneWelcomeDescription = document.getElementById('scene-welcome-description')
     this.sceneWelcomeClose = document.getElementById('scene-welcome-close')
     this.sceneWelcomeEnter = document.getElementById('scene-welcome-enter')
     this.welcomeShown = false  // Block scrolling while popup is shown
     this.pendingWelcome = false  // True when switched to scene, waiting to show welcome on scroll
-    
+
     // Scene content
     this.sceneContent = {
       left: {
@@ -182,11 +189,33 @@ export default class Navigation {
         description: 'Join us for insightful discussions with industry experts, artists, and thought leaders. Explore the intersection of nature, technology, and creativity through engaging panel sessions.'
       },
       right: {
-        title: 'Welcome to Livestream Stage',
-        description: 'Experience live performances and real-time broadcasts from artists around the world. Immerse yourself in the energy of live music, visual art, and interactive experiences.'
+        title: LIVESTREAM_WELCOME_TITLE,
+        html: LIVESTREAM_WELCOME_HTML
       }
     }
-    
+
+    this.livestreamInfoOpen = false
+    this.livestreamInfoBtn = document.getElementById('livestream-info-btn')
+    this.livestreamInfoModal = document.getElementById('livestream-info-modal')
+    this.livestreamInfoTitle = document.getElementById('livestream-info-title')
+    this.livestreamInfoBody = document.getElementById('livestream-info-body')
+    this.livestreamInfoClose = document.getElementById('livestream-info-close')
+
+    if (this.livestreamInfoBtn) {
+      this.livestreamInfoBtn.addEventListener('click', () => {
+        if (!this.livestreamInfoBtn.classList.contains('is-visible')) return
+        this.openLivestreamInfoModal()
+      })
+    }
+    if (this.livestreamInfoClose) {
+      this.livestreamInfoClose.addEventListener('click', () => this.closeLivestreamInfoModal())
+    }
+    if (this.livestreamInfoModal) {
+      this.livestreamInfoModal.addEventListener('click', (e) => {
+        if (e.target === this.livestreamInfoModal) this.closeLivestreamInfoModal()
+      })
+    }
+
     // Close button listeners
     if (this.sceneWelcomeClose) {
       this.sceneWelcomeClose.addEventListener('click', () => this.closeSceneWelcome())
@@ -195,22 +224,84 @@ export default class Navigation {
       this.sceneWelcomeEnter.addEventListener('click', () => this.closeSceneWelcome())
     }
   }
+
+  openLivestreamInfoModal() {
+    if (!this.livestreamInfoModal || !this.livestreamInfoTitle || !this.livestreamInfoBody) return
+    this.livestreamInfoTitle.textContent = LIVESTREAM_WELCOME_TITLE
+    this.livestreamInfoBody.innerHTML = LIVESTREAM_WELCOME_HTML
+    this.livestreamInfoModal.classList.add('is-visible')
+    this.livestreamInfoModal.setAttribute('aria-hidden', 'false')
+    this.livestreamInfoOpen = true
+    this.refreshLivestreamInfoButton()
+  }
+
+  closeLivestreamInfoModal() {
+    if (!this.livestreamInfoModal) return
+    this.livestreamInfoModal.classList.remove('is-visible')
+    this.livestreamInfoModal.setAttribute('aria-hidden', 'true')
+    this.livestreamInfoOpen = false
+    this.refreshLivestreamInfoButton()
+  }
+
+  refreshLivestreamInfoButton() {
+    const btn = this.livestreamInfoBtn
+    if (!btn) return
+    const exp = this.experience
+    const hideForOverlay =
+      this.exitConfirmationShown ||
+      this.welcomeShown ||
+      this.exhibitionOverviewShown ||
+      this.isSceneTransitioning ||
+      exp.isTransitioning ||
+      this.experience.sections?.orbitTransitioning ||
+      this.livestreamInfoOpen ||
+      this.experience.videoPopup?.isOpen
+
+    const show =
+      exp.phase === 'forest' &&
+      this.inScene &&
+      this.currentTarget === 'right' &&
+      !hideForOverlay
+
+    btn.classList.toggle('is-visible', show)
+  }
   
   showSceneWelcome(scene) {
     if (!this.sceneWelcome || !this.sceneContent[scene]) return
-    
+
     const content = this.sceneContent[scene]
     this.sceneWelcomeTitle.textContent = content.title
-    this.sceneWelcomeDescription.textContent = content.description
-    
+
+    if (scene === 'right' && content.html) {
+      this.sceneWelcomeDescription.innerHTML = content.html
+      this.sceneWelcomeContent?.classList.add('scene-welcome-content--livestream')
+    } else {
+      this.sceneWelcomeDescription.textContent = content.description
+      this.sceneWelcomeContent?.classList.remove('scene-welcome-content--livestream')
+    }
+
     this.sceneWelcome.classList.add('is-visible')
     this.welcomeShown = true
   }
   
   closeSceneWelcome() {
     if (!this.sceneWelcome) return
-    
-    this.sceneWelcome.classList.remove('is-visible')
+
+    const isLivestream =
+      this.currentTarget === 'right' ||
+      this.sceneWelcomeContent?.classList.contains('scene-welcome-content--livestream')
+
+    if (isLivestream) {
+      this.sceneWelcome.classList.add('scene-welcome--close-instant')
+      void this.sceneWelcome.offsetHeight
+      this.sceneWelcome.classList.remove('is-visible')
+      this.sceneWelcomeContent?.classList.remove('scene-welcome-content--livestream')
+      this.sceneWelcome.classList.remove('scene-welcome--close-instant')
+    } else {
+      this.sceneWelcomeContent?.classList.remove('scene-welcome-content--livestream')
+      this.sceneWelcome.classList.remove('is-visible')
+    }
+
     this.welcomeShown = false
     this.inScene = true
     if (this.currentTarget === 'left') {
@@ -493,6 +584,7 @@ export default class Navigation {
     this.exitConfirmation = document.querySelector('.exit-confirmation')
     this.exitBtnYes = document.querySelector('.exit-btn-yes')
     this.exitBtnNo = document.querySelector('.exit-btn-no')
+    this.exitToForestBtn = document.getElementById('exit-to-forest-btn')
 
     if (this.exitBtnYes) {
       this.exitBtnYes.addEventListener('click', () => this.onExitConfirm())
@@ -500,6 +592,48 @@ export default class Navigation {
     if (this.exitBtnNo) {
       this.exitBtnNo.addEventListener('click', () => this.onExitCancel())
     }
+    if (this.exitToForestBtn) {
+      this.exitToForestBtn.addEventListener('click', () => {
+        if (!this.exitToForestBtn.classList.contains('is-visible')) return
+        this.showExitConfirmation()
+      })
+    }
+  }
+
+  refreshExitToForestButton() {
+    const btn = this.exitToForestBtn
+    if (!btn) return
+    const exp = this.experience
+    const inSideScene =
+      exp.phase === 'forest' &&
+      this.inScene &&
+      !this.welcomeShown &&
+      (this.currentTarget === 'left' || this.currentTarget === 'right')
+    const inOrbit = this.inExhibitionOrbit || this.inShowcaseOrbit
+    const inTreeHubLanding =
+      exp.phase === 'tree' &&
+      this.inTreeHub &&
+      !this.inExhibitionOrbit &&
+      !this.inShowcaseOrbit
+    const sec = exp.sections
+    const treeHubEntryModalOpen =
+      inTreeHubLanding &&
+      sec &&
+      (sec.exhibitionEntry?.classList.contains('is-visible') ||
+        sec.showcaseEntry?.classList.contains('is-visible'))
+    const hideForOverlay =
+      this.exitConfirmationShown ||
+      this.welcomeShown ||
+      this.exhibitionOverviewShown ||
+      this.isSceneTransitioning ||
+      exp.isTransitioning ||
+      this.experience.sections?.orbitTransitioning
+    const show =
+      (inSideScene ||
+        inOrbit ||
+        (inTreeHubLanding && !treeHubEntryModalOpen)) &&
+      !hideForOverlay
+    btn.classList.toggle('is-visible', show)
   }
 
   showExitConfirmation() {
@@ -518,6 +652,8 @@ export default class Navigation {
   }
 
   onExitConfirm() {
+    this.closeLivestreamInfoModal()
+
     // Tree hub uses full tree -> forest transition
     if (this.inTreeHub) {
       this.hideExitConfirmation()
@@ -525,6 +661,17 @@ export default class Navigation {
       this.inScene = false
       this.exitTreeHub()
       this.mouseLookStrength = this.defaultMouseLookStrength
+      this.experience.transitionToForest()
+      return
+    }
+
+    // Exhibition / AWS orbit: leave tree scene for forest (same dialog as scroll exit from tree hub)
+    if (this.inExhibitionOrbit || this.inShowcaseOrbit) {
+      this.hideExitConfirmation()
+      this.isAtExitPoint = false
+      this.inScene = false
+      this.exitTreeHub()
+      this.clearPanelTalkStops()
       this.experience.transitionToForest()
       return
     }
@@ -602,7 +749,7 @@ export default class Navigation {
       const treeHubPos = this.startPosition.clone().add(
         forward.multiplyScalar(this.treeHubDistanceFromStart)
       )
-      treeHubPos.y = 1.6
+      treeHubPos.y = getWalkEyeWorldY()
       const startCamPos = this.camera.instance.position.clone()
       const endLookAt = this.targets.front.position.clone()
       this.isSceneTransitioning = true
@@ -629,6 +776,10 @@ export default class Navigation {
       })
       return
     }
+
+    if (this.inExhibitionOrbit || this.inShowcaseOrbit) {
+      return
+    }
     
     // Calculate entry point (approach distance from start toward current target)
     const currentTargetObj = this.targets[this.currentTarget]
@@ -638,7 +789,7 @@ export default class Navigation {
     this.targetPosition = this.startPosition.clone().add(
       directionToTarget.multiplyScalar(this.approachDistance)
     )
-    this.targetPosition.y = 1.6
+    this.targetPosition.y = getWalkEyeWorldY()
   }
 
   setDebug() {
@@ -858,7 +1009,7 @@ export default class Navigation {
     if (currentDist > returnDist) {
       const nextDist = Math.max(currentDist - this.treeHubScrollStep, returnDist)
       const nextPos = this.startPosition.clone().add(forward.clone().multiplyScalar(nextDist))
-      nextPos.y = 1.6
+      nextPos.y = getWalkEyeWorldY()
       this.position.copy(nextPos)
       this.targetPosition.copy(nextPos)
       this.camera.walkPosition.copy(nextPos)
@@ -877,7 +1028,12 @@ export default class Navigation {
 
   onKeyDown(event) {
     if (this.exitConfirmationShown) return
-    
+
+    if (event.key === 'Escape' && this.livestreamInfoOpen) {
+      this.closeLivestreamInfoModal()
+      return
+    }
+
     if (this.experience.phase === 'forest' && !this.isSceneTransitioning && this.currentTarget === 'front') {
       if (event.code === 'ArrowLeft' || event.code === 'KeyA') {
         this.switchToNextTarget('left')
@@ -932,7 +1088,7 @@ export default class Navigation {
       const finalNavPosition = this.startPosition.clone().add(
         dirToTarget.multiplyScalar(this.approachDistance)
       )
-      finalNavPosition.y = 1.6
+      finalNavPosition.y = getWalkEyeWorldY()
       
       // The camera end position IS the final nav position (walk mode copies position directly)
       const endCamPos = finalNavPosition.clone()
@@ -985,11 +1141,19 @@ export default class Navigation {
           this.camera.setWalkMode()
           
           this.isSceneTransitioning = false
-          
+
+          if (newTarget !== 'right') {
+            this.closeLivestreamInfoModal()
+          }
+
           // Adjust mouse look per scene
-          this.mouseLookStrength = newTarget === 'left'
-            ? this.panelTalkMouseLookStrength
-            : this.defaultMouseLookStrength
+          if (newTarget === 'left') {
+            this.mouseLookStrength = this.panelTalkMouseLookStrength
+          } else if (newTarget === 'right') {
+            this.mouseLookStrength = this.livestreamMouseLookStrength
+          } else {
+            this.mouseLookStrength = this.defaultMouseLookStrength
+          }
           if (newTarget !== 'left') this.clearPanelTalkStops()
 
           // For Panel Talk / Livestream: show welcome popup immediately
@@ -1008,6 +1172,8 @@ export default class Navigation {
   }
 
   update() {
+    this.refreshExitToForestButton()
+    this.refreshLivestreamInfoButton()
     if (!this.enabled) return
     
     if (this.experience.phase === 'forest' || this.inTreeHub) {
@@ -1042,7 +1208,7 @@ export default class Navigation {
       const distanceFromStart = toNewPos.dot(forward)  // Project onto forward direction
       
       // Calculate distance to target object
-      const targetPos2D = new THREE.Vector3(currentTargetObj.position.x, 1.6, currentTargetObj.position.z)
+      const targetPos2D = new THREE.Vector3(currentTargetObj.position.x, getWalkEyeWorldY(), currentTargetObj.position.z)
       const distanceToTarget = newPosition.distanceTo(targetPos2D)
       
       if (this.currentTarget === 'left') {
@@ -1056,10 +1222,13 @@ export default class Navigation {
           return
         }
         
-        // Scrolling backward to landing position triggers exit confirmation
-        if (distanceFromStart <= this.approachDistance) {
+        // Exit only when scrolling backward toward the forest. Landing uses walk eye height while `forward`
+        // includes a Y component, so projection along `forward` is slightly below `approachDistance`;
+        // treating "<= approachDistance" without a sign check made forward scroll open exit too.
+        const atEntryBand = distanceFromStart <= this.approachDistance + 0.08
+        if (atEntryBand && this.moveVelocity < 0) {
           this.position.copy(this.startPosition.clone().add(forward.clone().multiplyScalar(this.approachDistance)))
-          this.position.y = 1.6
+          this.position.y = getWalkEyeWorldY()
           this.targetPosition.copy(this.position)
           this.moveVelocity = 0
           this.showExitConfirmation()
@@ -1077,7 +1246,7 @@ export default class Navigation {
         } else if (distanceFromStart < 0) {
           // Block scrolling backward past landing position
           this.position.copy(this.startPosition.clone())
-          this.position.y = 1.6
+          this.position.y = getWalkEyeWorldY()
           this.moveVelocity = 0
         }
       }
@@ -1091,9 +1260,11 @@ export default class Navigation {
       this.moveVelocity = 0
     }
 
-    // Keep at eye height
-    this.position.y = 1.6
-    this.targetPosition.y = 1.6
+    // Keep at eye height (startPosition Y stays in sync for distance / tree hub math)
+    const eyeY = getWalkEyeWorldY()
+    this.startPosition.y = eyeY
+    this.position.y = eyeY
+    this.targetPosition.y = eyeY
 
     // Fade nav buttons based on scroll distance from landing (only when facing Exhibition)
     if (this.currentTarget === 'front' && !this.isSceneTransitioning) {
@@ -1183,6 +1354,7 @@ export default class Navigation {
   }
 
   resetToStart() {
+    this.closeLivestreamInfoModal()
     this.position.copy(this.startPosition)
     this.targetPosition.copy(this.startPosition)
     this.rotationY = 0

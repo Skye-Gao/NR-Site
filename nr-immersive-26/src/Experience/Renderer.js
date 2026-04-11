@@ -9,6 +9,11 @@ export default class Renderer {
     this.scene = this.experience.scene
     this.camera = this.experience.camera
 
+    /** Baseline ACES exposure; restored when leaving Panel Talk / Livestream */
+    this.baseToneMappingExposure = 1
+    /** Applied while Panel Talk or Livestream stage is active. */
+    this.stageExposureBoost = 1.2
+
     this.setInstance()
   }
 
@@ -21,7 +26,7 @@ export default class Renderer {
     })
     this.instance.outputColorSpace = THREE.SRGBColorSpace
     this.instance.toneMapping = THREE.ACESFilmicToneMapping
-    this.instance.toneMappingExposure = 1
+    this.instance.toneMappingExposure = this.baseToneMappingExposure
     this.instance.setClearColor('#0a0f0a')
     this.instance.setSize(this.sizes.width, this.sizes.height)
     this.instance.setPixelRatio(this.sizes.pixelRatio)
@@ -34,6 +39,17 @@ export default class Renderer {
 
   update() {
     this.instance.render(this.scene, this.camera.instance)
+  }
+
+  /**
+   * Slightly raises global tone-mapping exposure on Panel Talk / Livestream
+   * so screens read less muddy; reset when leaving.
+   */
+  setStageExposureBoost(active) {
+    if (!this.instance) return
+    this.instance.toneMappingExposure = active
+      ? this.baseToneMappingExposure * this.stageExposureBoost
+      : this.baseToneMappingExposure
   }
 
   dispose() {

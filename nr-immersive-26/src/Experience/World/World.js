@@ -46,9 +46,11 @@ export default class World {
   onEnterScene(sceneName) {
     if (sceneName === 'left' && this.panelTalkScene) {
       this.panelTalkScene.playVideos()
+      this.experience.renderer?.setStageExposureBoost(true)
     }
     if (sceneName === 'right' && this.livestreamScene) {
       this.livestreamScene.playVideo()
+      this.experience.renderer?.setStageExposureBoost(true)
     }
     this.currentScene = sceneName
   }
@@ -56,9 +58,11 @@ export default class World {
   onExitScene(sceneName) {
     if (sceneName === 'left' && this.panelTalkScene) {
       this.panelTalkScene.pauseVideos()
+      this.experience.renderer?.setStageExposureBoost(false)
     }
     if (sceneName === 'right' && this.livestreamScene) {
       this.livestreamScene.pauseVideo()
+      this.experience.renderer?.setStageExposureBoost(false)
     }
     this.currentScene = null
   }
