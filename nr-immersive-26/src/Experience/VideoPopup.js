@@ -259,10 +259,11 @@ export default class VideoPopup {
   }
 
   isVimeoEmbed(url) {
+    if (typeof url !== 'string') return false
+    const u = url.toLowerCase()
     return (
-      typeof url === 'string' &&
-      url.includes('vimeo.com') &&
-      url.includes('/embed/')
+      u.includes('player.vimeo.com/video/') ||
+      (u.includes('vimeo.com') && u.includes('/embed/'))
     )
   }
 

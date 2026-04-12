@@ -1,9 +1,9 @@
 import * as THREE from 'three'
 import Experience from '../Experience.js'
 
-/** Vimeo Live Event embed (popup); mesh uses static poster — iframe cannot drive WebGL textures. */
+/** Vimeo video (popup); mesh uses static poster — iframe cannot drive WebGL textures. */
 const VIMEO_MAINSTAGE_EMBED_URL =
-  'https://vimeo.com/event/5861006/embed/abacdbb082/interaction'
+  'https://player.vimeo.com/video/1182123129?h=2a08bd35d9&badge=0&autopause=0&player_id=0&app_id=58479'
 
 export default class LivestreamScene {
   constructor() {
