@@ -427,7 +427,7 @@ export default class Experience {
       this.navigation.forestHint.classList.add('is-hidden')
     }
     
-    // Update top bar center to show "Exhibition"
+    // Update top bar center to show Gallery (tree crown)
     this.navigation.updateTopBarCenter('front')
 
     // Straight move toward main tree, keep current forward-facing view (no orbit rotation)

@@ -338,13 +338,13 @@ export default class Navigation {
     if (this.forestHint) this.forestHint.classList.add('is-hidden')
     if (this.sceneHint) this.sceneHint.classList.add('is-visible')
     const sceneHintName = document.getElementById('scene-hint-name')
-    if (sceneHintName) sceneHintName.textContent = 'Exhibition'
+    if (sceneHintName) sceneHintName.textContent = 'Gallery'
     this.treeHubButtonsShown = true
     if (this.treeHubButtonsTimer) {
       clearTimeout(this.treeHubButtonsTimer)
       this.treeHubButtonsTimer = null
     }
-    this.experience.sections?.setTreeHubControlsProgress(1)
+    // Hub button visibility: sections.showTreeHub() sets tree-hub-mode then setTreeHubControlsProgress(1).
   }
 
   exitTreeHub() {
@@ -356,6 +356,8 @@ export default class Navigation {
       clearTimeout(this.treeHubButtonsTimer)
       this.treeHubButtonsTimer = null
     }
+    // Always tear down tree-hub UI when leaving landing (orbit, forest, etc.).
+    this.experience.sections?.hideTreeHub()
   }
 
   initializePanelTalkStops() {
@@ -530,7 +532,7 @@ export default class Navigation {
     
     const labelMap = {
       left: 'Panel Talk',
-      front: 'Exhibition',
+      front: 'Gallery',
       right: 'Livestream'
     }
     
@@ -1319,6 +1321,10 @@ export default class Navigation {
 
     // Update camera with mouse look and look-at target
     this.camera.updateWalkPosition(this.position, this.rotationY, mouseLookOffsetX, mouseLookOffsetY, lookAtTarget)
+
+    if (this.inTreeHub && this.experience.phase === 'tree') {
+      this.experience.sections?.updateScroll(this.treeLandingScrollProgress)
+    }
 
     // Show exhibition overview popup at halfway to tree (only when facing tree)
     if (this.currentTarget === 'front' && !this.exhibitionOverviewShown) {

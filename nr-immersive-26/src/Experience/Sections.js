@@ -97,6 +97,8 @@ export default class Sections {
       this.container.classList.add('tree-hub-mode')
     }
     this.setTreeHubControlsProgress(1)
+    const landing = this.experience.navigation?.treeLandingScrollProgress ?? 0.5
+    this.updateScroll(landing)
   }
 
   hideTreeHub() {
@@ -344,6 +346,9 @@ export default class Sections {
 
     cam.mode = 'transitioning'
     const progress = { value: 0 }
+    const landingScroll = nav.treeLandingScrollProgress ?? 0.5
+    const thumbEnd = type === 'exhibition' ? 1 : 0
+
     gsap.to(progress, {
       value: 1,
       duration: 2.2,
@@ -353,6 +358,8 @@ export default class Sections {
         cam.instance.position.lerpVectors(startPos, endPos, t)
         const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
         cam.instance.lookAt(look)
+        const thumbP = THREE.MathUtils.lerp(landingScroll, thumbEnd, t)
+        this.updateScroll(thumbP)
       },
       onComplete: () => {
         if (type === 'exhibition') {
@@ -522,14 +529,31 @@ export default class Sections {
   }
 
   updateScroll(progress) {
-    if (!this.visible || this.inExhibitionOrbit || this.inShowcaseOrbit) return
+    if (!this.visible) return
+
+    const nav = this.experience.navigation
+    let thumbProgress = THREE.MathUtils.clamp(progress, 0, 1)
+    if (nav?.inTreeHub) {
+      thumbProgress = THREE.MathUtils.clamp(nav.treeLandingScrollProgress ?? 0.5, 0, 1)
+    } else if (this.inExhibitionOrbit) {
+      thumbProgress = 1
+    } else if (this.inShowcaseOrbit) {
+      thumbProgress = 0
+    }
 
     if (this.scrollThumb && this.scrollTrack) {
       const trackHeight = this.scrollTrack.offsetHeight
-      const thumbPosition = (1 - progress) * trackHeight
+      const thumbPosition = (1 - thumbProgress) * trackHeight
       this.scrollThumb.style.top = `${thumbPosition}px`
       this.scrollThumb.style.transform = 'translate(-50%, -50%)'
     }
+
+    const skipSectionEffects =
+      this.inExhibitionOrbit ||
+      this.inShowcaseOrbit ||
+      nav?.inTreeHub ||
+      this.orbitTransitioning
+    if (skipSectionEffects) return
 
     let activeSection = null
     for (const section of this.sections) {

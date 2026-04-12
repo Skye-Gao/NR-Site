@@ -13,7 +13,7 @@ export default class MainTree {
 
     this.sectionPoints = {
       showcase: new THREE.Vector3(0, -10, -60),   // Underground - Special Showcase (roots)
-      exhibition: new THREE.Vector3(0, 16, -60),  // Top section - Exhibition (crown)
+      exhibition: new THREE.Vector3(0, 16, -60),  // Top section - Gallery (crown)
     }
 
     this.group = new THREE.Group()

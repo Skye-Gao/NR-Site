@@ -83,7 +83,7 @@ export default class Camera {
     folder.close()
     
     folder.add(this, 'focusMinHeight').min(0).max(15).step(0.5).name('Min Height (Showcase)')
-    folder.add(this, 'focusMaxHeight').min(15).max(50).step(1).name('Max Height (Exhibition)')
+    folder.add(this, 'focusMaxHeight').min(15).max(50).step(1).name('Max Height (Gallery)')
     folder.add(this, 'focusMinOrbitRadius').min(3).max(20).step(0.5).name('Min Distance')
     folder.add(this, 'focusMaxOrbitRadius').min(10).max(50).step(1).name('Max Distance')
     folder.add(this, 'focusLookAtRatio').min(0.2).max(0.9).step(0.05).name('Look At Ratio')

@@ -138,7 +138,7 @@ export default class ExhibitionNodes {
   setupDebug() {
     if (!this.debug.ui) return
     
-    const folder = this.debug.ui.addFolder('Exhibition Nodes')
+    const folder = this.debug.ui.addFolder('Gallery (crown) nodes')
     folder.close()
     
     folder.add(this.nodeSettings, 'baseHeight').min(10).max(30).step(0.5).name('Base Height').onChange(() => this.updateNodePositions())

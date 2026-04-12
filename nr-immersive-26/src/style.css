@@ -952,12 +952,24 @@ body.phase-showcase-orbit .scene-hint {
   pointer-events: auto;
 }
 
+/* Only show hub CTAs in tree-hub landing layout (guards stale .is-visible). */
+.sections-container:not(.tree-hub-mode) .tree-hub-controls {
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
 .sections-container.tree-hub-mode .section,
-.sections-container.tree-hub-mode .scroll-indicator,
 .sections-container.tree-hub-mode .back-button {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
+}
+
+/* Keep vertical progress visible at tree landing (hub); labels read Gallery / Showcase */
+.sections-container.tree-hub-mode .scroll-indicator {
+  opacity: 1;
+  visibility: visible;
 }
 
 .tree-hub-btn {
@@ -1928,8 +1940,8 @@ body.phase-showcase-orbit .scene-hint {
 
 .sections-container.exhibition-orbit-mode .scroll-indicator,
 .sections-container.showcase-orbit-mode .scroll-indicator {
-  opacity: 0;
-  visibility: hidden;
+  opacity: 1;
+  visibility: visible;
 }
 
 .sections-container.exhibition-orbit-mode .back-button,
