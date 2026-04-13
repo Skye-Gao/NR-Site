@@ -159,6 +159,7 @@ export default class Navigation {
     this.setupExitConfirmation()
     this.setupExhibitionOverview()
     this.setupTopBarCenter()
+    this.setupPanelProgress()
     this.updateNavArrows()
     
     if (this.debug.active) this.setDebug()
@@ -185,7 +186,7 @@ export default class Navigation {
     // Scene content
     this.sceneContent = {
       left: {
-        title: 'Welcome to Panel Talk Stage',
+        title: 'Welcome to Panel discussions',
         description: 'Join us for insightful discussions with industry experts, artists, and thought leaders. Explore the intersection of nature, technology, and creativity through engaging panel sessions.'
       },
       right: {
@@ -223,6 +224,80 @@ export default class Navigation {
     if (this.sceneWelcomeEnter) {
       this.sceneWelcomeEnter.addEventListener('click', () => this.closeSceneWelcome())
     }
+  }
+
+  setupPanelProgress() {
+    this.panelProgress = document.getElementById('panel-progress')
+    this.panelProgressPoints = document.getElementById('panel-progress-points')
+    this.panelProgressButtons = []
+    if (!this.panelProgressPoints) return
+
+    this.panelProgressPoints.addEventListener('click', (e) => {
+      const btn = e.target.closest('.panel-progress-point')
+      if (!btn) return
+      if (!this.enabled) return
+      if (!this.inScene || this.currentTarget !== 'left') return
+      if (this.panelIsMoving) return
+      const index = Number(btn.dataset.stopIndex)
+      if (!Number.isFinite(index)) return
+      if (index === this.panelStopIndex) return
+      this.transitionToPanelStop(index)
+    })
+  }
+
+  rebuildPanelProgressStops() {
+    if (!this.panelProgressPoints) return
+    this.panelProgressPoints.innerHTML = ''
+    this.panelProgressButtons = []
+    if (!this.panelStops.length) {
+      this.refreshPanelProgressVisibility()
+      return
+    }
+
+    const n = this.panelStops.length
+    this.panelStops.forEach((_, i) => {
+      const btn = document.createElement('button')
+      btn.type = 'button'
+      btn.className = 'panel-progress-point'
+      btn.dataset.stopIndex = `${i}`
+      btn.setAttribute('aria-label', `Go to panel display ${i + 1}`)
+      const pct = n === 1 ? 50 : (i / (n - 1)) * 100
+      btn.style.top = `${pct}%`
+      this.panelProgressPoints.appendChild(btn)
+      this.panelProgressButtons.push(btn)
+    })
+
+    this.updatePanelProgressActiveStop()
+    this.refreshPanelProgressVisibility()
+  }
+
+  updatePanelProgressActiveStop() {
+    if (!this.panelProgressButtons?.length) return
+    this.panelProgressButtons.forEach((btn, i) => {
+      btn.classList.toggle('is-active', i === this.panelStopIndex)
+    })
+  }
+
+  refreshPanelProgressVisibility() {
+    if (!this.panelProgress) return
+    const exp = this.experience
+    const hideForOverlay =
+      this.exitConfirmationShown ||
+      this.welcomeShown ||
+      this.exhibitionOverviewShown ||
+      this.isSceneTransitioning ||
+      exp.isTransitioning ||
+      this.experience.sections?.orbitTransitioning ||
+      this.experience.videoPopup?.isOpen
+
+    const show =
+      exp.phase === 'forest' &&
+      this.inScene &&
+      this.currentTarget === 'left' &&
+      this.panelStops.length > 0 &&
+      !hideForOverlay
+
+    this.panelProgress.classList.toggle('is-visible', show)
   }
 
   openLivestreamInfoModal() {
@@ -371,6 +446,7 @@ export default class Navigation {
     this.panelIsMoving = false
     this.panelWheelAccumulator = 0
     this.panelWheelLockUntil = 0
+    this.rebuildPanelProgressStops()
   }
 
   clearPanelTalkStops() {
@@ -381,6 +457,7 @@ export default class Navigation {
     this.panelIsMoving = false
     this.panelWheelAccumulator = 0
     this.panelWheelLockUntil = 0
+    this.rebuildPanelProgressStops()
   }
 
   movePanelTalkByScroll(deltaY) {
@@ -459,6 +536,7 @@ export default class Navigation {
         this.camera.walkLookAtTarget = endLookAt.clone()
         this.camera.setWalkMode()
         this.panelIsMoving = false
+        this.updatePanelProgressActiveStop()
       }
     })
   }
@@ -1184,6 +1262,7 @@ export default class Navigation {
   update() {
     this.refreshExitToForestButton()
     this.refreshLivestreamInfoButton()
+    this.refreshPanelProgressVisibility()
     if (!this.enabled) return
     
     if (this.experience.phase === 'forest' || this.inTreeHub) {

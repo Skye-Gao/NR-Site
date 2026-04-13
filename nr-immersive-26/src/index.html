@@ -72,6 +72,22 @@
           <div class="center-label">Livestream<br>Countdown</div>
           <div class="countdown-time">00:00:00</div>
         </div>
+        <button
+          type="button"
+          class="top-bar-audio-toggle"
+          id="ambient-audio-toggle"
+          aria-pressed="true"
+          aria-label="Mute ambient sound"
+          title="Mute ambient sound"
+        >
+          <svg class="top-bar-audio-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <path
+              class="icon-note"
+              d="M10 5v9.2a2.8 2.8 0 1 1-1.2-2.3V7.2l8-2.2v7.2a2.8 2.8 0 1 1-1.2-2.3V5.8L10 7.4z"
+            />
+            <path class="icon-slash" d="M4 20L20 4" />
+          </svg>
+        </button>
       </div>
       <nav class="top-bar-nav">
         <a href="https://www.naturalresonance.world/about" class="nav-link" target="_blank" rel="noopener noreferrer">About Us</a>
@@ -147,6 +163,11 @@
           </span>
           <span class="hint-text" id="scene-hint-text">Scroll to navigate <span class="nav-scene-name" id="scene-hint-name">Livestream</span></span>
         </div>
+      </div>
+
+      <div class="panel-progress" id="panel-progress" aria-label="Panel display progress">
+        <div class="panel-progress-track" aria-hidden="true"></div>
+        <div class="panel-progress-points" id="panel-progress-points"></div>
       </div>
 
       <button type="button" class="livestream-info-btn" id="livestream-info-btn" aria-label="Festival information">
@@ -351,7 +372,7 @@
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
-        <h2 class="scene-welcome-title" id="scene-welcome-title">Welcome to Panel Talk Stage</h2>
+        <h2 class="scene-welcome-title" id="scene-welcome-title">Welcome to Panel discussions</h2>
         <div class="scene-welcome-description" id="scene-welcome-description">
           Join us for insightful discussions with industry experts, artists, and thought leaders.
           Explore the intersection of nature, technology, and creativity through engaging panel sessions.

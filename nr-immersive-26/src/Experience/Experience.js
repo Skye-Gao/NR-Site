@@ -18,6 +18,9 @@ import { WORLD_GROUND_LEVEL_Y, getWalkEyeWorldY } from './World/worldGroundLevel
 
 /** When `true`, skip ticket + landing and start in the forest. Set `false` for the normal welcome page. */
 const SKIP_LANDING_PAGE = false
+const AMBIENT_AUDIO_URL = '/Ambient%20Sound_NRF.mp3'
+const AMBIENT_AUDIO_VOLUME = 0.35
+const AMBIENT_VIDEO_POLL_MS = 700
 
 let instance = null
 
@@ -56,6 +59,7 @@ export default class Experience {
 
     // Disable navigation until the user passes the welcome page (Enter + valid code)
     this.navigation.enabled = false
+    this.setupAmbientAudio()
 
     this.sizes.on('resize', () => this.resize())
     this.time.on('tick', () => this.update())
@@ -172,6 +176,108 @@ export default class Experience {
     this._livestreamCountdownExpiredApplied = false
     this.updateCountdown()
     this.countdownInterval = setInterval(() => this.updateCountdown(), 1000)
+  }
+
+  setupAmbientAudio() {
+    this.ambientAudio = new Audio(AMBIENT_AUDIO_URL)
+    this.ambientAudio.loop = true
+    this.ambientAudio.preload = 'auto'
+    this.ambientAudio.volume = AMBIENT_AUDIO_VOLUME
+    this.ambientAudio.muted = false
+    this._ambientStarted = false
+    this._ambientUserEnabled = true
+    this.ambientToggleBtn = document.getElementById('ambient-audio-toggle')
+
+    this._ambientUnlockBound = () => this.tryStartAmbientAudio()
+    this._ambientVideoSyncBound = () => this.syncAmbientAudioWithVideos()
+    this._ambientToggleClickBound = () => {
+      this._ambientUserEnabled = !this._ambientUserEnabled
+      if (this._ambientUserEnabled) {
+        this.tryStartAmbientAudio()
+      } else if (this.ambientAudio) {
+        this.ambientAudio.muted = true
+      }
+      this.syncAmbientAudioWithVideos()
+      this.renderAmbientToggleState()
+    }
+
+    window.addEventListener('pointerdown', this._ambientUnlockBound, { passive: true })
+    window.addEventListener('touchstart', this._ambientUnlockBound, { passive: true })
+    window.addEventListener('keydown', this._ambientUnlockBound)
+    if (this.ambientToggleBtn) {
+      this.ambientToggleBtn.addEventListener('click', this._ambientToggleClickBound)
+    }
+
+    // Capture non-bubbling media events from all present/future video elements.
+    document.addEventListener('play', this._ambientVideoSyncBound, true)
+    document.addEventListener('playing', this._ambientVideoSyncBound, true)
+    document.addEventListener('pause', this._ambientVideoSyncBound, true)
+    document.addEventListener('ended', this._ambientVideoSyncBound, true)
+
+    // Safety poll for programmatic play/pause state changes.
+    this._ambientVideoPollId = window.setInterval(
+      () => this.syncAmbientAudioWithVideos(),
+      AMBIENT_VIDEO_POLL_MS
+    )
+    this.renderAmbientToggleState()
+  }
+
+  removeAmbientUnlockListeners() {
+    if (!this._ambientUnlockBound) return
+    window.removeEventListener('pointerdown', this._ambientUnlockBound)
+    window.removeEventListener('touchstart', this._ambientUnlockBound)
+    window.removeEventListener('keydown', this._ambientUnlockBound)
+  }
+
+  tryStartAmbientAudio() {
+    if (!this.ambientAudio || this._ambientStarted) return
+    const maybePromise = this.ambientAudio.play()
+    if (!maybePromise || typeof maybePromise.then !== 'function') {
+      this._ambientStarted = true
+      this.removeAmbientUnlockListeners()
+      this.syncAmbientAudioWithVideos()
+      return
+    }
+    maybePromise
+      .then(() => {
+        this._ambientStarted = true
+        this.removeAmbientUnlockListeners()
+        this.syncAmbientAudioWithVideos()
+      })
+      .catch(() => {
+        // Ignore autoplay rejection; next user interaction retries.
+      })
+  }
+
+  isAnyVideoPlaying() {
+    const videos = document.querySelectorAll('video')
+    for (const v of videos) {
+      if (!v.paused && !v.ended && v.readyState > 2) return true
+    }
+    return false
+  }
+
+  syncAmbientAudioWithVideos() {
+    if (!this.ambientAudio) return
+    const hasVideoPlaying = this.isAnyVideoPlaying()
+    this.ambientAudio.muted = hasVideoPlaying || !this._ambientUserEnabled
+    this.renderAmbientToggleState(hasVideoPlaying)
+  }
+
+  renderAmbientToggleState(hasVideoPlaying = this.isAnyVideoPlaying()) {
+    if (!this.ambientToggleBtn) return
+    const enabled = this._ambientUserEnabled
+    const isMuted = hasVideoPlaying || !enabled
+    this.ambientToggleBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false')
+    this.ambientToggleBtn.classList.toggle('is-muted', isMuted)
+
+    let label
+    if (!enabled) label = 'Unmute ambient sound'
+    else if (hasVideoPlaying) label = 'Ambient sound temporarily muted while video plays'
+    else label = 'Mute ambient sound'
+
+    this.ambientToggleBtn.setAttribute('aria-label', label)
+    this.ambientToggleBtn.setAttribute('title', label)
   }
 
   /** When target time passes: hide numeric countdown; label → “Livestream / Main Stage”. */
@@ -564,6 +670,33 @@ export default class Experience {
     if (this._sideStageWarmupDebounceId != null) {
       clearTimeout(this._sideStageWarmupDebounceId)
       this._sideStageWarmupDebounceId = null
+    }
+    if (this._ambientVideoPollId != null) {
+      clearInterval(this._ambientVideoPollId)
+      this._ambientVideoPollId = null
+    }
+
+    this.removeAmbientUnlockListeners()
+    if (this._ambientVideoSyncBound) {
+      document.removeEventListener('play', this._ambientVideoSyncBound, true)
+      document.removeEventListener('playing', this._ambientVideoSyncBound, true)
+      document.removeEventListener('pause', this._ambientVideoSyncBound, true)
+      document.removeEventListener('ended', this._ambientVideoSyncBound, true)
+      this._ambientVideoSyncBound = null
+    }
+    if (this.ambientToggleBtn && this._ambientToggleClickBound) {
+      this.ambientToggleBtn.removeEventListener('click', this._ambientToggleClickBound)
+      this._ambientToggleClickBound = null
+    }
+    if (this.ambientAudio) {
+      try {
+        this.ambientAudio.pause()
+        this.ambientAudio.removeAttribute('src')
+        this.ambientAudio.load()
+      } catch {
+        /* ignore */
+      }
+      this.ambientAudio = null
     }
 
     this.sizes.off('resize')
