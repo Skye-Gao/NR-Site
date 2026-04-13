@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 import Experience from '../Experience.js'
 import { WORLD_GROUND_LEVEL_Y } from './worldGroundLevel.js'
+import galleryManifest from '../../data/galleryManifest.json'
+import { galleryAssetUrl, formatMediaLabel, pausePopupMedia } from '../../data/galleryUrls.js'
 
 export default class ExhibitionNodes {
   constructor() {
@@ -23,90 +25,8 @@ export default class ExhibitionNodes {
       floatSpeed: 1.0        // Speed of floating animation
     }
     
-    // Node configuration
     this.nodes = []
-    this.nodeData = [
-      {
-        id: 1,
-        title: 'Digital Forest I',
-        artist: 'Maya Chen',
-        description: 'An exploration of natural patterns through generative algorithms.',
-        image: 'https://picsum.photos/seed/art1/400/500',
-        position: new THREE.Vector3(-3.5, 14, -58),
-        rotation: 0.3,
-        size: { width: 2.5, height: 3 }
-      },
-      {
-        id: 2,
-        title: 'Urban Canopy',
-        artist: 'James Wright',
-        description: 'The intersection of city architecture and organic growth.',
-        image: 'https://picsum.photos/seed/art2/400/600',
-        position: new THREE.Vector3(-1, 16, -61),
-        rotation: -0.2,
-        size: { width: 2, height: 3 }
-      },
-      {
-        id: 3,
-        title: 'Roots of Memory',
-        artist: 'Sofia Andersson',
-        description: 'A visual meditation on ancestry and connection to the earth.',
-        image: 'https://picsum.photos/seed/art3/500/400',
-        position: new THREE.Vector3(2, 13, -57),
-        rotation: 0.15,
-        size: { width: 3, height: 2.4 }
-      },
-      {
-        id: 4,
-        title: 'Chromatic Nature',
-        artist: 'Leo Park',
-        description: 'Bold colors meet organic forms in this striking piece.',
-        image: 'https://picsum.photos/seed/art4/400/400',
-        position: new THREE.Vector3(4, 15, -60),
-        rotation: -0.4,
-        size: { width: 2.5, height: 2.5 }
-      },
-      {
-        id: 5,
-        title: 'Ethereal Light',
-        artist: 'Emma Davis',
-        description: 'Capturing the fleeting moments of dawn through the forest.',
-        image: 'https://picsum.photos/seed/art5/350/500',
-        position: new THREE.Vector3(-2.5, 17, -63),
-        rotation: 0.1,
-        size: { width: 1.8, height: 2.6 }
-      },
-      {
-        id: 6,
-        title: 'Terra Nova',
-        artist: 'Carlos Mendez',
-        description: 'New perspectives on familiar landscapes.',
-        image: 'https://picsum.photos/seed/art6/450/350',
-        position: new THREE.Vector3(1, 18, -59),
-        rotation: -0.25,
-        size: { width: 2.8, height: 2.2 }
-      },
-      {
-        id: 7,
-        title: 'Silent Growth',
-        artist: 'Yuki Tanaka',
-        description: 'The quiet persistence of nature in urban environments.',
-        image: 'https://picsum.photos/seed/art7/400/550',
-        position: new THREE.Vector3(4.5, 12, -62),
-        rotation: 0.35,
-        size: { width: 2.2, height: 3 }
-      },
-      {
-        id: 8,
-        title: 'Symbiosis',
-        artist: 'Anna Kowalski',
-        description: 'Exploring the interconnected relationships in ecosystems.',
-        image: 'https://picsum.photos/seed/art8/500/450',
-        position: new THREE.Vector3(-4.5, 15, -64),
-        rotation: -0.15,
-        size: { width: 2.8, height: 2.5 }
-      }
-    ]
+    this.nodeData = this.buildNodeDataFromManifest()
 
     this.group = new THREE.Group()
     this.textureLoader = new THREE.TextureLoader()
@@ -123,7 +43,7 @@ export default class ExhibitionNodes {
     this.popupTitle = document.getElementById('artwork-title')
     this.popupArtist = document.getElementById('artwork-artist')
     this.popupDescription = document.getElementById('artwork-description')
-    this.popupImage = document.getElementById('artwork-image')
+    this.popupMediaStack = document.getElementById('artwork-media-stack')
     this.popupClose = document.getElementById('artwork-popup-close')
     
     this.createNodes()
@@ -133,6 +53,49 @@ export default class ExhibitionNodes {
     this.setupDebug()
     
     this.scene.add(this.group)
+  }
+
+  appendArtistTextSection(container, label, text, options = {}) {
+    const t = (text || '').trim()
+    if (!t) return
+    const lab = document.createElement('div')
+    lab.className = 'artwork-popup-section-label'
+    lab.textContent = label
+    const body = document.createElement('div')
+    body.className = 'artwork-popup-prose'
+    body.style.whiteSpace = 'pre-line'
+    body.textContent = t
+    container.appendChild(lab)
+    container.appendChild(body)
+    if (options.dividerAfter) {
+      const rule = document.createElement('div')
+      rule.className = 'artwork-popup-section-divider'
+      rule.setAttribute('aria-hidden', 'true')
+      container.appendChild(rule)
+    }
+  }
+
+  buildNodeDataFromManifest() {
+    const base = galleryManifest.baseFolder
+    return galleryManifest.artists
+      .filter((a) => a.posterFile)
+      .map((a, index) => ({
+        id: index + 1,
+        title: a.name,
+        artist: a.name,
+        image: galleryAssetUrl(base, a.folder, a.posterFile),
+        folder: a.folder,
+        media: a.media.map((m) => ({
+          file: m.file,
+          type: m.type,
+          url: galleryAssetUrl(base, a.folder, m.file),
+        })),
+        artistStatement: (a.artistStatement || '').replace(/\r\n/g, '\n').trim(),
+        bio: (a.bio || '').replace(/\r\n/g, '\n').trim(),
+        position: new THREE.Vector3(0, 0, 0),
+        rotation: 0,
+        size: { width: 2.5, height: 3 },
+      }))
   }
 
   setupDebug() {
@@ -179,8 +142,8 @@ export default class ExhibitionNodes {
       mesh.position.set(x, y, z)
       mesh.scale.setScalar(s.baseScale)
       
-      // Make nodes face outward from tree center
-      mesh.rotation.y = angle + Math.PI
+      // Face the gallery plane outward (toward orbit camera), not toward the tree
+      mesh.rotation.y = angle
       
       // Store base Y for floating animation
       mesh.userData.baseY = y
@@ -416,12 +379,60 @@ export default class ExhibitionNodes {
     if (!this.popup) return
     if (!this.isInCorrespondingSpace()) return
     if (this.isInteractionBlocked()) return
-    
-    // Set content
+
+    pausePopupMedia(this.popupMediaStack)
+    if (this.popupMediaStack) {
+      this.popupMediaStack.innerHTML = ''
+      for (const item of data.media || []) {
+        const block = document.createElement('div')
+        block.className = 'artwork-popup-media-block'
+        if (item.type === 'image') {
+          const img = document.createElement('img')
+          img.className = 'artwork-popup-media-item'
+          img.src = item.url
+          img.alt = formatMediaLabel(item.file)
+          img.loading = 'lazy'
+          block.appendChild(img)
+        } else if (item.type === 'video') {
+          const v = document.createElement('video')
+          v.className = 'artwork-popup-media-item'
+          v.controls = true
+          v.playsInline = true
+          v.setAttribute('playsinline', '')
+          v.preload = 'metadata'
+          v.src = item.url
+          block.appendChild(v)
+        } else if (item.type === 'audio') {
+          const cap = document.createElement('div')
+          cap.className = 'artwork-popup-media-caption'
+          cap.textContent = formatMediaLabel(item.file)
+          const au = document.createElement('audio')
+          au.className = 'artwork-popup-media-item artwork-popup-media-audio'
+          au.controls = true
+          au.preload = 'metadata'
+          au.src = item.url
+          block.appendChild(cap)
+          block.appendChild(au)
+        }
+        this.popupMediaStack.appendChild(block)
+      }
+    }
+
     if (this.popupTitle) this.popupTitle.textContent = data.title
-    if (this.popupArtist) this.popupArtist.textContent = `By ${data.artist}`
-    if (this.popupDescription) this.popupDescription.textContent = data.description
-    if (this.popupImage) this.popupImage.src = data.image
+    if (this.popupArtist) this.popupArtist.textContent = 'Natural Resonance · 2026 Gallery'
+    if (this.popupDescription) {
+      this.popupDescription.innerHTML = ''
+      this.appendArtistTextSection(this.popupDescription, 'Artist statement', data.artistStatement, {
+        dividerAfter: true,
+      })
+      this.appendArtistTextSection(this.popupDescription, 'Bio', data.bio, { dividerAfter: true })
+      if (!data.artistStatement && !data.bio) {
+        const p = document.createElement('p')
+        p.className = 'artwork-popup-text-intro'
+        p.textContent = 'Biography and statement will appear here when added.'
+        this.popupDescription.appendChild(p)
+      }
+    }
     
     // Show popup
     this.popup.classList.add('is-visible')
@@ -434,6 +445,10 @@ export default class ExhibitionNodes {
 
   closePopup() {
     if (!this.popup) return
+
+    pausePopupMedia(this.popupMediaStack)
+    if (this.popupMediaStack) this.popupMediaStack.innerHTML = ''
+    if (this.popupDescription) this.popupDescription.innerHTML = ''
     
     this.popup.classList.remove('is-visible')
     
@@ -471,8 +486,10 @@ export default class ExhibitionNodes {
 
   dispose() {
     this.nodes.forEach((node) => {
+      const mat = node.material
+      if (mat?.map) mat.map.dispose()
       node.geometry?.dispose()
-      node.material?.dispose()
+      mat?.dispose()
     })
     this.scene.remove(this.group)
   }

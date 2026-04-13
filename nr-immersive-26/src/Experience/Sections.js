@@ -3,6 +3,9 @@ import gsap from 'gsap'
 import Experience from './Experience.js'
 import { WORLD_GROUND_LEVEL_Y, getWalkEyeWorldY } from './World/worldGroundLevel.js'
 
+/** Delay after camera tween before entry overlay fades in (lets the view settle). */
+const ENTRY_POPUP_LAND_DELAY_MS = 220
+
 export default class Sections {
   constructor() {
     this.experience = new Experience()
@@ -23,6 +26,7 @@ export default class Sections {
     this.showcaseEntryShown = false
     this.inShowcaseOrbit = false
     this.orbitTransitioning = false
+    this.treeLandmarkAnimating = false
 
     this.setElements()
   }
@@ -74,6 +78,25 @@ export default class Sections {
     if (this.treeHubShowcaseBtn) {
       this.treeHubShowcaseBtn.addEventListener('click', () => {
         this.enterShowcaseOrbit()
+      })
+    }
+
+    document.querySelectorAll('.scroll-label-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const lm = btn.getAttribute('data-landmark')
+        if (lm) this.goToTreeLandmark(lm)
+      })
+    })
+
+    if (this.scrollTrack) {
+      this.scrollTrack.addEventListener('click', (e) => {
+        const rect = this.scrollTrack.getBoundingClientRect()
+        if (!rect.height) return
+        const y = e.clientY - rect.top
+        const t = y / rect.height
+        if (t < 1 / 3) this.goToTreeLandmark('gallery')
+        else if (t > 2 / 3) this.goToTreeLandmark('showcase')
+        else this.goToTreeLandmark('ground')
       })
     }
   }
@@ -162,10 +185,13 @@ export default class Sections {
     }
   }
   
-  enterExhibitionOrbit() {
+  enterExhibitionOrbit(options = {}) {
     if (this.orbitTransitioning) return
     if (this.experience.navigation?.inTreeHub) {
-      this.transitionFromTreeHubToOrbit('exhibition')
+      this.transitionFromTreeHubToOrbit('exhibition', {
+        showEntryPopupAfter: options.showEntryPopupAfter !== false,
+        entryPopupDelayMs: options.entryPopupDelayMs,
+      })
       return
     }
 
@@ -183,8 +209,9 @@ export default class Sections {
     document.body.classList.remove('phase-tree')
     document.body.classList.add('phase-exhibition-orbit')
     
-    // Set camera to exhibition orbit mode
-    if (this.experience.camera) {
+    // Seed orbit from focus only when not already there — setExhibitionOrbitMode() copies
+    // focusOrbit* and would snap the camera away from the post-tween landing pose after Enter.
+    if (this.experience.camera && this.experience.camera.mode !== 'exhibitionOrbit') {
       this.experience.camera.setExhibitionOrbitMode()
     }
 
@@ -262,10 +289,13 @@ export default class Sections {
     }
   }
   
-  enterShowcaseOrbit() {
+  enterShowcaseOrbit(options = {}) {
     if (this.orbitTransitioning) return
     if (this.experience.navigation?.inTreeHub) {
-      this.transitionFromTreeHubToOrbit('showcase')
+      this.transitionFromTreeHubToOrbit('showcase', {
+        showEntryPopupAfter: options.showEntryPopupAfter !== false,
+        entryPopupDelayMs: options.entryPopupDelayMs,
+      })
       return
     }
 
@@ -301,8 +331,7 @@ export default class Sections {
       this.experience.world.exhibitionNodes.hide()
     }
     
-    // Set camera to showcase orbit mode
-    if (this.experience.camera) {
+    if (this.experience.camera && this.experience.camera.mode !== 'showcaseOrbit') {
       this.experience.camera.setShowcaseOrbitMode()
     }
     
@@ -313,10 +342,129 @@ export default class Sections {
     }
   }
 
-  transitionFromTreeHubToOrbit(type) {
+  _orbitEndPose(type, cam, treeZ, gy) {
+    if (type === 'exhibition') {
+      const x = Math.sin(cam.exhibitionOrbitAngle) * cam.exhibitionOrbitRadius
+      const z = treeZ + Math.cos(cam.exhibitionOrbitAngle) * cam.exhibitionOrbitRadius
+      const endPos = new THREE.Vector3(x, cam.exhibitionOrbitHeight + gy, z)
+      const endLookAt = new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight + gy, treeZ)
+      return { endPos, endLookAt }
+    }
+    const x = Math.sin(cam.showcaseOrbitAngle) * cam.showcaseOrbitRadius
+    const z = treeZ + Math.cos(cam.showcaseOrbitAngle) * cam.showcaseOrbitRadius
+    const endPos = new THREE.Vector3(x, cam.showcaseOrbitHeight + gy, z)
+    const endLookAt = new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight + gy, treeZ)
+    return { endPos, endLookAt }
+  }
+
+  _finishOrbitArrival(type, cam, nav, endPos, endLookAt) {
+    const treeZ = cam.treePosition.z
+    const gy = WORLD_GROUND_LEVEL_Y
+
+    nav.setExhibitionOrbitMode(false)
+    nav.setShowcaseOrbitMode(false)
+
+    if (type === 'exhibition') {
+      this.inShowcaseOrbit = false
+      this.inExhibitionOrbit = true
+      if (this.container) {
+        this.container.classList.remove('showcase-orbit-mode')
+        this.container.classList.add('exhibition-orbit-mode')
+      }
+      document.body.classList.remove('phase-tree', 'phase-showcase-orbit')
+      document.body.classList.add('phase-exhibition-orbit')
+      nav.setExhibitionOrbitMode(true)
+      cam.setExhibitionOrbitMode()
+      cam.exhibitionOrbitAngle = Math.atan2(endPos.x, endPos.z - treeZ)
+      cam.exhibitionOrbitRadius = Math.hypot(endPos.x, endPos.z - treeZ)
+      cam.exhibitionOrbitHeight = endPos.y - gy
+
+      if (this.experience.world?.exhibitionNodes) this.experience.world.exhibitionNodes.show()
+      if (this.experience.world?.showcaseNodes) this.experience.world.showcaseNodes.hide()
+      if (this.experience.world?.mainTree) this.experience.world.mainTree.showAboveGroundOnly()
+      if (this.experience.world?.floor) this.experience.world.floor.show()
+    } else {
+      this.inExhibitionOrbit = false
+      this.inShowcaseOrbit = true
+      if (this.container) {
+        this.container.classList.remove('exhibition-orbit-mode')
+        this.container.classList.add('showcase-orbit-mode')
+      }
+      document.body.classList.remove('phase-tree', 'phase-exhibition-orbit')
+      document.body.classList.add('phase-showcase-orbit')
+      if (this.experience.world?.floor) this.experience.world.floor.hide()
+      if (this.experience.world?.mainTree) this.experience.world.mainTree.showUndergroundOnly()
+      nav.setShowcaseOrbitMode(true)
+      cam.setShowcaseOrbitMode()
+      cam.showcaseOrbitAngle = Math.atan2(endPos.x, endPos.z - treeZ)
+      cam.showcaseOrbitRadius = Math.hypot(endPos.x, endPos.z - treeZ)
+      cam.showcaseOrbitHeight = endPos.y - gy
+
+      if (this.experience.world?.showcaseNodes) this.experience.world.showcaseNodes.show()
+      if (this.experience.world?.exhibitionNodes) this.experience.world.exhibitionNodes.hide()
+    }
+
+    cam.instance.position.copy(endPos)
+    cam.instance.lookAt(endLookAt)
+  }
+
+  _tweenCameraIntoOrbit({
+    type,
+    startPos,
+    startLookAt,
+    endPos,
+    endLookAt,
+    thumbStart,
+    thumbEnd,
+    duration = 2.2,
+    ease = 'sine.inOut',
+    showEntryPopupAfter = false,
+    entryPopupDelayMs = ENTRY_POPUP_LAND_DELAY_MS,
+  }) {
     const cam = this.experience.camera
     const nav = this.experience.navigation
     if (!cam || !nav) return
+
+    cam.mode = 'transitioning'
+    const progress = { value: 0 }
+
+    gsap.to(progress, {
+      value: 1,
+      duration,
+      ease,
+      onUpdate: () => {
+        const t = progress.value
+        cam.instance.position.lerpVectors(startPos, endPos, t)
+        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
+        cam.instance.lookAt(look)
+        const thumbP = THREE.MathUtils.lerp(thumbStart, thumbEnd, t)
+        this.updateScroll(thumbP)
+      },
+      onComplete: () => {
+        this._finishOrbitArrival(type, cam, nav, endPos, endLookAt)
+        nav.scrollProgress = thumbEnd
+        nav.targetScrollProgress = thumbEnd
+        cam.scrollProgress = thumbEnd
+        this.orbitTransitioning = false
+        const delay =
+          showEntryPopupAfter && entryPopupDelayMs > 0 ? entryPopupDelayMs : 0
+        if (showEntryPopupAfter) {
+          window.setTimeout(() => {
+            if (type === 'exhibition') this.showExhibitionEntry()
+            else this.showShowcaseEntry()
+          }, delay)
+        } else {
+          nav.enabled = true
+        }
+      },
+    })
+  }
+
+  transitionFromTreeHubToOrbit(type, options = {}) {
+    const cam = this.experience.camera
+    const nav = this.experience.navigation
+    if (!cam || !nav) return
+    if (this.orbitTransitioning) return
 
     this.orbitTransitioning = true
     nav.enabled = false
@@ -324,83 +472,116 @@ export default class Sections {
     this.hideTreeHub()
     this.hideExhibitionEntry()
     this.hideShowcaseEntry()
+    this.exhibitionEntryShown = false
+    this.showcaseEntryShown = false
 
     const treeZ = cam.treePosition.z
     const gy = WORLD_GROUND_LEVEL_Y
     const startPos = cam.instance.position.clone()
     const startLookAt = this.targetsLookAtFromMode(cam)
-
-    let endPos
-    let endLookAt
-    if (type === 'exhibition') {
-      const x = Math.sin(cam.exhibitionOrbitAngle) * cam.exhibitionOrbitRadius
-      const z = treeZ + Math.cos(cam.exhibitionOrbitAngle) * cam.exhibitionOrbitRadius
-      endPos = new THREE.Vector3(x, cam.exhibitionOrbitHeight + gy, z)
-      endLookAt = new THREE.Vector3(cam.treePosition.x, cam.exhibitionLookAtHeight + gy, treeZ)
-    } else {
-      const x = Math.sin(cam.showcaseOrbitAngle) * cam.showcaseOrbitRadius
-      const z = treeZ + Math.cos(cam.showcaseOrbitAngle) * cam.showcaseOrbitRadius
-      endPos = new THREE.Vector3(x, cam.showcaseOrbitHeight + gy, z)
-      endLookAt = new THREE.Vector3(cam.treePosition.x, cam.showcaseLookAtHeight + gy, treeZ)
-    }
-
-    cam.mode = 'transitioning'
-    const progress = { value: 0 }
+    const { endPos, endLookAt } = this._orbitEndPose(type, cam, treeZ, gy)
     const landingScroll = nav.treeLandingScrollProgress ?? 0.5
     const thumbEnd = type === 'exhibition' ? 1 : 0
+    const showEntry = options.showEntryPopupAfter !== false
 
-    gsap.to(progress, {
-      value: 1,
-      duration: 2.2,
-      ease: 'sine.inOut',
-      onUpdate: () => {
-        const t = progress.value
-        cam.instance.position.lerpVectors(startPos, endPos, t)
-        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
-        cam.instance.lookAt(look)
-        const thumbP = THREE.MathUtils.lerp(landingScroll, thumbEnd, t)
-        this.updateScroll(thumbP)
-      },
-      onComplete: () => {
-        if (type === 'exhibition') {
-          this.inExhibitionOrbit = true
-          if (this.container) this.container.classList.add('exhibition-orbit-mode')
-          document.body.classList.remove('phase-tree')
-          document.body.classList.add('phase-exhibition-orbit')
-          nav.setExhibitionOrbitMode(true)
-          cam.setExhibitionOrbitMode()
-          cam.exhibitionOrbitAngle = Math.atan2(endPos.x, endPos.z - treeZ)
-          cam.exhibitionOrbitRadius = Math.hypot(endPos.x, endPos.z - treeZ)
-          cam.exhibitionOrbitHeight = endPos.y - WORLD_GROUND_LEVEL_Y
+    this._tweenCameraIntoOrbit({
+      type,
+      startPos,
+      startLookAt,
+      endPos,
+      endLookAt,
+      thumbStart: landingScroll,
+      thumbEnd,
+      duration: options.duration ?? 2.2,
+      ease: options.ease ?? 'sine.inOut',
+      showEntryPopupAfter: showEntry,
+      entryPopupDelayMs:
+        options.entryPopupDelayMs ?? (showEntry ? ENTRY_POPUP_LAND_DELAY_MS : 0),
+    })
+  }
 
-          // Crown mode visuals
-          if (this.experience.world?.exhibitionNodes) this.experience.world.exhibitionNodes.show()
-          if (this.experience.world?.showcaseNodes) this.experience.world.showcaseNodes.hide()
-          if (this.experience.world?.mainTree) this.experience.world.mainTree.showAboveGroundOnly()
-          if (this.experience.world?.floor) this.experience.world.floor.show()
-        } else {
-          this.inShowcaseOrbit = true
-          if (this.container) this.container.classList.add('showcase-orbit-mode')
-          document.body.classList.remove('phase-tree')
-          document.body.classList.add('phase-showcase-orbit')
-          if (this.experience.world?.floor) this.experience.world.floor.hide()
-          if (this.experience.world?.mainTree) this.experience.world.mainTree.showUndergroundOnly()
-          nav.setShowcaseOrbitMode(true)
-          cam.setShowcaseOrbitMode()
-          cam.showcaseOrbitAngle = Math.atan2(endPos.x, endPos.z - treeZ)
-          cam.showcaseOrbitRadius = Math.hypot(endPos.x, endPos.z - treeZ)
-          cam.showcaseOrbitHeight = endPos.y - WORLD_GROUND_LEVEL_Y
+  transitionFromFocusToOrbit(type, options = {}) {
+    const cam = this.experience.camera
+    const nav = this.experience.navigation
+    if (!cam || !nav) return
+    if (this.orbitTransitioning) return
+    if (cam.mode !== 'focus') return
 
-          // Root mode visuals
-          if (this.experience.world?.showcaseNodes) this.experience.world.showcaseNodes.show()
-          if (this.experience.world?.exhibitionNodes) this.experience.world.exhibitionNodes.hide()
-        }
+    this.orbitTransitioning = true
+    nav.enabled = false
+    this.hideExhibitionEntry()
+    this.hideShowcaseEntry()
+    this.exhibitionEntryShown = false
+    this.showcaseEntryShown = false
 
-        cam.instance.position.copy(endPos)
-        cam.instance.lookAt(endLookAt)
-        nav.enabled = true
-        this.orbitTransitioning = false
-      }
+    if (nav.inTreeHub) {
+      nav.exitTreeHub()
+      this.hideTreeHub()
+    }
+
+    const treeZ = cam.treePosition.z
+    const gy = WORLD_GROUND_LEVEL_Y
+    const startPos = cam.instance.position.clone()
+    const startLookAt = this.targetsLookAtFromMode(cam)
+    const { endPos, endLookAt } = this._orbitEndPose(type, cam, treeZ, gy)
+    const thumbStart = THREE.MathUtils.clamp(nav.scrollProgress, 0, 1)
+    const thumbEnd = type === 'exhibition' ? 1 : 0
+    const showEntry = options.showEntryPopupAfter !== false
+
+    this._tweenCameraIntoOrbit({
+      type,
+      startPos,
+      startLookAt,
+      endPos,
+      endLookAt,
+      thumbStart,
+      thumbEnd,
+      duration: options.duration ?? 2.2,
+      ease: options.ease ?? 'sine.inOut',
+      showEntryPopupAfter: showEntry,
+      entryPopupDelayMs:
+        options.entryPopupDelayMs ?? (showEntry ? ENTRY_POPUP_LAND_DELAY_MS : 0),
+    })
+  }
+
+  transitionOrbitToOpposite(targetType, options = {}) {
+    const cam = this.experience.camera
+    const nav = this.experience.navigation
+    if (!cam || !nav) return
+    if (this.orbitTransitioning) return
+    const fromExhibition = this.inExhibitionOrbit && targetType === 'showcase'
+    const fromShowcase = this.inShowcaseOrbit && targetType === 'exhibition'
+    if (!fromExhibition && !fromShowcase) return
+
+    this.orbitTransitioning = true
+    nav.enabled = false
+    this.hideExhibitionEntry()
+    this.hideShowcaseEntry()
+    this.exhibitionEntryShown = false
+    this.showcaseEntryShown = false
+
+    const treeZ = cam.treePosition.z
+    const gy = WORLD_GROUND_LEVEL_Y
+    const startPos = cam.instance.position.clone()
+    const startLookAt = this.targetsLookAtFromMode(cam)
+    const { endPos, endLookAt } = this._orbitEndPose(targetType, cam, treeZ, gy)
+    const thumbStart = fromExhibition ? 1 : 0
+    const thumbEnd = targetType === 'exhibition' ? 1 : 0
+    const showEntry = options.showEntryPopupAfter !== false
+
+    this._tweenCameraIntoOrbit({
+      type: targetType,
+      startPos,
+      startLookAt,
+      endPos,
+      endLookAt,
+      thumbStart,
+      thumbEnd,
+      duration: options.duration ?? 2.85,
+      ease: options.ease ?? 'sine.inOut',
+      showEntryPopupAfter: showEntry,
+      entryPopupDelayMs:
+        options.entryPopupDelayMs ?? (showEntry ? ENTRY_POPUP_LAND_DELAY_MS : 0),
     })
   }
 
@@ -535,6 +716,8 @@ export default class Sections {
     let thumbProgress = THREE.MathUtils.clamp(progress, 0, 1)
     if (nav?.inTreeHub) {
       thumbProgress = THREE.MathUtils.clamp(nav.treeLandingScrollProgress ?? 0.5, 0, 1)
+    } else if (this.orbitTransitioning) {
+      thumbProgress = THREE.MathUtils.clamp(progress, 0, 1)
     } else if (this.inExhibitionOrbit) {
       thumbProgress = 1
     } else if (this.inShowcaseOrbit) {
@@ -620,6 +803,154 @@ export default class Sections {
     // Show showcase entry popup when reaching the very bottom
     if (progress <= 0.02 && !this.showcaseEntryShown && this.currentSection === 'showcase') {
       this.showShowcaseEntry()
+    }
+  }
+
+  closeEntryPopupsForLandmarkNav() {
+    this.hideExhibitionEntry()
+    this.hideShowcaseEntry()
+    this.exhibitionEntryShown = false
+    this.showcaseEntryShown = false
+    if (this.experience.navigation) {
+      this.experience.navigation.enabled = true
+    }
+  }
+
+  applyScrollProgressToTree(progress) {
+    const nav = this.experience.navigation
+    const cam = this.experience.camera
+    if (!nav || !cam) return
+    const lp = THREE.MathUtils.clamp(progress, 0, 1)
+    nav.scrollProgress = lp
+    nav.targetScrollProgress = lp
+    cam.scrollProgress = lp
+    if (cam.mode !== 'exhibitionOrbit' && cam.mode !== 'showcaseOrbit' && cam.mode !== 'transitioning') {
+      cam.setFocusMode()
+    }
+    cam.updateScrollProgress(lp)
+    this.updateScroll(lp)
+  }
+
+  /**
+   * Focus / scroll-along-tree → tree hub (walk + hub UI). Not used when already in hub or in orbit (use returnToTreeLanding).
+   */
+  animateCameraToTreeHubFromFocus() {
+    const nav = this.experience.navigation
+    const cam = this.experience.camera
+    if (!nav || !cam || this.treeLandmarkAnimating) return
+    if (nav.inTreeHub) return
+    if (cam.mode !== 'focus') return
+
+    this.treeLandmarkAnimating = true
+
+    const forward = new THREE.Vector3()
+      .subVectors(nav.targets.front.position, nav.startPosition)
+      .normalize()
+    const endCamPos = nav.startPosition.clone().add(
+      forward.clone().multiplyScalar(nav.treeHubDistanceFromStart)
+    )
+    endCamPos.y = getWalkEyeWorldY()
+    const endLookAt = nav.targets.front.position.clone()
+
+    const startCamPos = cam.instance.position.clone()
+    const gy = WORLD_GROUND_LEVEL_Y
+    const startLookAt = new THREE.Vector3(
+      cam.treePosition.x,
+      cam.focusLookAtHeight + gy,
+      cam.treePosition.z
+    )
+
+    nav.enabled = false
+    cam.mode = 'transitioning'
+
+    const progress = { value: 0 }
+    gsap.to(progress, {
+      value: 1,
+      duration: 1.65,
+      ease: 'power2.inOut',
+      onUpdate: () => {
+        const t = progress.value
+        cam.instance.position.lerpVectors(startCamPos, endCamPos, t)
+        const look = new THREE.Vector3().lerpVectors(startLookAt, endLookAt, t)
+        cam.instance.lookAt(look)
+      },
+      onComplete: () => {
+        const landing = nav.treeLandingScrollProgress ?? 0.5
+        nav.scrollProgress = landing
+        nav.targetScrollProgress = landing
+        cam.scrollProgress = landing
+        cam.instance.position.copy(endCamPos)
+        cam.instance.lookAt(endLookAt)
+        nav.enabled = true
+        nav.enterTreeHub(endCamPos, endLookAt)
+        cam.setWalkMode()
+        this.showTreeHub()
+        this.treeLandmarkAnimating = false
+      },
+    })
+  }
+
+  /**
+   * Scroll bar landmarks: Gallery (crown), Ground (hub), Showcase (roots).
+   */
+  goToTreeLandmark(landmark) {
+    const exp = this.experience
+    const nav = exp.navigation
+    const cam = exp.camera
+    if (!this.visible || exp.phase !== 'tree' || exp.isTransitioning || this.orbitTransitioning) return
+    if (!nav || !cam) return
+    if (this.treeLandmarkAnimating) return
+
+    if (document.getElementById('artwork-popup')?.classList.contains('is-visible')) return
+    if (nav.exitConfirmationShown || nav.welcomeShown) return
+
+    this.closeEntryPopupsForLandmarkNav()
+
+    if (landmark === 'ground') {
+      if (nav.inTreeHub) return
+      if (this.inExhibitionOrbit || this.inShowcaseOrbit) {
+        this.returnToTreeLanding()
+        return
+      }
+      if (cam.mode === 'focus') {
+        this.animateCameraToTreeHubFromFocus()
+      }
+      return
+    }
+
+    if (landmark === 'gallery') {
+      if (this.inExhibitionOrbit) return
+      if (this.inShowcaseOrbit) {
+        this.transitionOrbitToOpposite('exhibition')
+        return
+      }
+      if (nav.inTreeHub) {
+        this.enterExhibitionOrbit()
+        return
+      }
+      if (cam.mode === 'focus') {
+        this.transitionFromFocusToOrbit('exhibition')
+        return
+      }
+      this.applyScrollProgressToTree(1)
+      return
+    }
+
+    if (landmark === 'showcase') {
+      if (this.inShowcaseOrbit) return
+      if (this.inExhibitionOrbit) {
+        this.transitionOrbitToOpposite('showcase')
+        return
+      }
+      if (nav.inTreeHub) {
+        this.enterShowcaseOrbit()
+        return
+      }
+      if (cam.mode === 'focus') {
+        this.transitionFromFocusToOrbit('showcase')
+        return
+      }
+      this.applyScrollProgressToTree(0)
     }
   }
 

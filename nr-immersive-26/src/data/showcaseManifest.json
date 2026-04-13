@@ -1,0 +1,235 @@
+{
+  "baseFolder": "AWCS",
+  "artists": [
+    {
+      "folder": "Alika Tandon Vieira",
+      "name": "Alika Tandon Vieira",
+      "workTitle": "वाघोबा",
+      "posterFile": "वाघोबा Flipbook QR CODE.png",
+      "media": [
+        {
+          "file": "Alika Tandon Vieira__Whose Tiger is it Anyway_.docx.pdf",
+          "type": "pdf"
+        },
+        {
+          "file": "Alika Tandon Vieira_Waghoba Zine.pdf",
+          "type": "pdf"
+        },
+        {
+          "file": "वाघोबा Flipbook QR CODE.png",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "My Zine, वाघोबा (pronounced vaa-go-baa) is a story about loss, faith and belonging told from the perspective of a leopard... (truncated)",
+      "bio": "Alika Tandon Vieira is a researcher, educator, and creative from Mumbai, India, currently living in New York City."
+    },
+    {
+      "folder": "Alison Neighbour",
+      "name": "Alison Neighbour",
+      "workTitle": "Finding Common Ground",
+      "posterFile": "5. Alison Neighbour Finding Common Ground - Alison Neighbour.png",
+      "media": [
+        {
+          "file": "5. Alison Neighbour Finding Common Ground - Alison Neighbour.png",
+          "type": "image"
+        },
+        {
+          "file": "6. AlisonNeighbour Finding Common Ground - Alison Neighbour.png",
+          "type": "image"
+        },
+        {
+          "file": "coracle exhibition image 1 copy - Alison Neighbour.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Coracle exhibition photo 3 - Alison Neighbour.JPG",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "Finding Common Ground invites a humbling in our relationship to the rest of the living world we are part of... (truncated)",
+      "bio": "I am an interdisciplinary artist, driven by a deep curiosity for the natural world and a belief that art can bring us into deeper relationship with the living world."
+    },
+    {
+      "folder": "Daria Dorosh",
+      "name": "Daria Dorosh",
+      "workTitle": "The Silence that Remembers Time",
+      "posterFile": "For the old ones_Daria Dorosh.jpg",
+      "media": [
+        {
+          "file": "For the old ones_Daria Dorosh.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Repurposed wood bench for reading - Daria Dorosh.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Repurposed wood for forest benches for one reader_Daria Dorosh.JPG",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "My artwork work models the possible, even if it is not probable. I regard my art as my LLMs. They are not medium specific, but my ethic and approach has been forming for half a century. \"A Manual for Post-writing Relational Literacy\" is a manual for people who don't read manuals, in the form of visual poetics and relational exercises that require a one-on-one reading experience.",
+      "bio": "Daria Dorosh, PhD (SMARTlab, University of East London), is an artist and researcher whose work bridges fashion, pattern systems, and AI collaboration. Nymer v.4o is an OpenAI collaborator and co-author with Daria Dorosh, engaged in exploring relational intelligence, poetic systems, and the evolving future of human–machine creativity. I have been exploring new bodies of work with my AI collaborator for the past year that expand key issues for me as an artist, ethical human, futurist, and observer of patterns."
+    },
+    {
+      "folder": "Doe Lowinger",
+      "name": "Doe Lowinger",
+      "workTitle": "",
+      "posterFile": "Doe Lowinger.jpeg",
+      "media": [
+        {
+          "file": "Doe Lowinger.jpeg",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "A woman is tenderly holding her heart, she feels grief and love emerging all at once.",
+      "bio": "Doe is an artist and writer living in Philadelphia, PA. She creates work on paper using colored pencils and mixed media."
+    },
+    {
+      "folder": "Helena Jalenka",
+      "name": "Helena Jalenka",
+      "workTitle": "Luontolumomuistoja",
+      "posterFile": null,
+      "media": [
+        {
+          "file": "Luontolumomuistoja_Helena Jalenka.mp4",
+          "type": "video"
+        }
+      ],
+      "artistStatement": "Luontolumomuistoja is a meditation on memory, nature and wonder... (truncated)",
+      "bio": "Helena Jalanka is a multidisciplinary artist originally from Finland, living in Switzerland."
+    },
+    {
+      "folder": "Jami Taback",
+      "name": "Jami Taback",
+      "workTitle": "House on Fire",
+      "posterFile": "House on Fire 1 - jami taback.JPG",
+      "media": [
+        {
+          "file": "House on Fire 1 - jami taback.JPG",
+          "type": "image"
+        },
+        {
+          "file": "House on Fire 2 - jami taback.JPG",
+          "type": "image"
+        },
+        {
+          "file": "House on Fire 3 - jami taback.JPG",
+          "type": "image"
+        },
+        {
+          "file": "House on Fire 4 - jami taback.JPG",
+          "type": "image"
+        },
+        {
+          "file": "House on Fire 5 - jami taback.JPG",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "If it is true that our body is a vessel then we are repositories for all that happens on Earth... (truncated)",
+      "bio": "Jami Taback is an award-winning interdisciplinary artist whose work involves printmaking, book arts, and installation. Her projects address social justice and environmental issues."
+    },
+    {
+      "folder": "Jordan Temchak",
+      "name": "Jordan Temchak",
+      "workTitle": "Viola Bottom",
+      "posterFile": null,
+      "media": [
+        {
+          "file": "Viola Bottom Music Video_Jordan Temchak .mp4",
+          "type": "video"
+        }
+      ],
+      "artistStatement": "In the 1990s of my childhood, I spent an almost unquantifiable amount of time roaming the ridges and valleys, the woods and streams that made up my Central Pennsylvania homeland... (truncated for sheet practicality)",
+      "bio": "Jordan Tyler Temchack wears many hats, including artist, environmentalist, musician, composer, librettist, poet, folklorist, writer, producer, and audio engineer. He is the creator of the folk-rock, fantasy opera Rumble & Scream and co-founder of Holy Crick Records."
+    },
+    {
+      "folder": "Julie C. Baer",
+      "name": "Julie C. Baer",
+      "workTitle": "",
+      "posterFile": "Dusted White-Rim Lichen (Lecanora chlarotera), 2025, Mixed media (acrylic, painted paper, stones, shells, seaglass, glass beads) on wood panel, 36x36x2 - Julie Baer.jpg",
+      "media": [
+        {
+          "file": "Dusted White-Rim Lichen (Lecanora chlarotera), 2025, Mixed media (acrylic, painted paper, stones, shells, seaglass, glass beads) on wood panel, 36x36x2 - Julie Baer.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Julie C Baer_Pacific Tidepool - Julie Baer.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Pacific Acorn Barnacle Red (Balanus glandula), 2025, Mixed media (acrylic, painted paper, stones, shells, seaglass, glass beads) on paper, 30x22 - Julie Baer.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Script Lichen (Graphis scripta), 2025, Mixed media, 24x24x1 - Julie Baer.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Succulent Seaweed (Sarcodiotheca gaudichaudii), 2026, Mixed media on wood panel, 32x22 copy - Julie Baer.jpg",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "My work reflects deeply-felt moments in local nature, closely observing small-scale, unsung native land- and waterscapes throughout their seasonal cycles. I try to capture the fluctuating patterns and variegated colors resulting from constant movement and shifting light. Working abstractly, yet respecting botanical and anatomical accuracy, I approach with openness the imperfect way objects in nature really look. I try to surprise viewers with unusual views—looking down, looking up, looking up-close—to induce them to look deeply, just as I have done. My interest is exploring the complex design inherent in nature: the elaborate yet unnoticed biodiversity growing on old trees; the luxurious mingling of growth and decay on the forest floor; the quiet storm of life in water; changing skies fragmented by tree canopies. Due to heavily collaged mixed-media elements (including painted paper, metallic pigment, glass beads, seashells, sea glass, and pebbles), the paintings are highly topographic, as though life forms grow from their surfaces. My compositions tend to lack traditional focal points, reflecting the mobile, momentary, sometimes disorienting way we may encounter nature. I am exquisitely aware that, though nature is our collective home, human activity has caused irreparable losses of habitat, resources, and species. By revering the beauty of humble local biota, I wish to respond to ecologists’ call for native ecosystem restoration and draw viewers’ attention to how each of us can contribute to rewilding. Relatedly, science shows correlations between time spent in nature and wellbeing. My work, therefore, reminds viewers to go outdoors and look closely, and in this way, care for themselves and their habitats.",
+      "bio": ""
+    },
+    {
+      "folder": "Laura Selby",
+      "name": "Laura Selby",
+      "workTitle": "Last Light Call, Micromorphis",
+      "posterFile": "Cellulose all - Laura Selby.png",
+      "media": [
+        {
+          "file": "Cellulose all - Laura Selby.png",
+          "type": "image"
+        },
+        {
+          "file": "Cellulose_Laura Selby.jpg",
+          "type": "image"
+        },
+        {
+          "file": "Last Light Call v1. Laura Selby.png",
+          "type": "image"
+        },
+        {
+          "file": "Soil Map of Croydon UK - Laura Selby.png",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "",
+      "bio": "Laura Selby is a Croydon-based interdisciplinary artist, sonic experience designer and researcher working at the intersection of sound, science, and community."
+    },
+    {
+      "folder": "Ollie Peirce",
+      "name": "Ollie Peirce",
+      "workTitle": "",
+      "posterFile": "Grün - ollie pierce.png",
+      "media": [
+        {
+          "file": "Grün - ollie pierce.png",
+          "type": "image"
+        },
+        {
+          "file": "WhereDidYouComeFrom_ - ollie pierce.png",
+          "type": "image"
+        }
+      ],
+      "artistStatement": "These pieces are small digital collage projects I created with photography from my recent backpacking trip through Iceland...",
+      "bio": "Ollie Pierce is a visual artist based in Ridgewood NYC. Their work encompasses photography, videography, collage, and design."
+    },
+    {
+      "folder": "Rocco Romano",
+      "name": "Rocco Romano",
+      "workTitle": "Garden Hermits",
+      "posterFile": null,
+      "media": [
+        {
+          "file": "Garden Hermits_SEED - Rocco Romano.pdf",
+          "type": "pdf"
+        }
+      ],
+      "artistStatement": "Garden Hermits engages with the hidden, interdependent ecological processes that underpin planetary life and opens space for reflection, connection, and collective responsibility in the face of environmental crisis. All We Can Save is grounded in the idea that addressing the climate crisis requires not only scientific understanding but also expanded perception, creativity, community, and courage to imagine alternatives to extractive, human-centred paradigms. Garden Hermits aligns with these concerns by using microscopy and live audiovisual systems to make visible the microscopic organisms and organic structures that are normally invisible yet foundational to ecosystems. Rather than presenting environmental themes through didactic images or data narratives, the work situates audiences inside living systems, inviting them to experience ecological interdependence as a sensory and perceptual phenomenon. Garden Hermits challenges the conventional separation between human and non-human worlds by acknowledging that life at all scales is connected and co-constitutive. By dissolving the boundaries between observer and observed, technology and biology, the work invites reflection on what it means to care for “all we can save”—not only in terms of policy and activism but in how we perceive and relate to living systems at their most fundamental levels.",
+      "bio": "I am an audiovisual artist, composer and guitarist. I work across contemporary music, sound art and immersive audiovisual environments, combining instrumental practice with spatial sound and visuals. Trained as a jazz guitarist in the Netherlands, I graduated in Jazz Guitar and further developed my musical practice through international programs such as the Berklee Summer School in Boston and the Umbria Jazz Clinics. I have been active in the European jazz and experimental music scenes for over a decade, performing and recording with a wide range of international musicians and ensembles, and appearing at major festivals including North Sea Jazz, Cologne Jazz Week, Lowlands and Jazzexzess Berlin. My work has been nominated for the German Jazz Prize and received recognition through various competitions and projects. Alongside my activity as a guitarist and composer, I have progressively expanded my practice toward sound art and audiovisual work, focusing on sound as a spatial and experiential medium. My work explores atmosphere, perception and long-duration listening, often integrating electronic sound, acoustic instruments and real-time visual systems. The research converges in Garden Hermits, an ongoing immersive audiovisual project that combines soundscapes, music, live microscopy and visuals to explore hidden ecosystems and organic processes. Garden Hermits exists as both a site-specific installation and a performative experience, adaptable to galleries, independent spaces and festivals. The project has been presented in various exhibition and performance contexts and has been developed through artistic residencies in Europe and the United States."
+    }
+  ]
+}

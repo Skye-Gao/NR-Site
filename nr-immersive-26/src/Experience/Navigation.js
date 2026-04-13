@@ -964,6 +964,14 @@ export default class Navigation {
   }
 
   onWheel(event) {
+    if (
+      event.target.closest?.(
+        '.artwork-popup.is-visible .artwork-popup-media-scroll, .artwork-popup.is-visible .artwork-popup-text-scroll'
+      )
+    ) {
+      return
+    }
+
     event.preventDefault()
 
     if (this.inExhibitionOrbit) {

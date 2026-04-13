@@ -212,8 +212,9 @@
             <div class="scroll-thumb"></div>
           </div>
           <div class="scroll-labels">
-            <span>Gallery</span>
-            <span>Showcase</span>
+            <button type="button" class="scroll-label-btn" data-landmark="gallery" aria-label="Go to Gallery landing">Gallery</button>
+            <button type="button" class="scroll-label-btn" data-landmark="ground" aria-label="Go to Ground landing">Ground</button>
+            <button type="button" class="scroll-label-btn" data-landmark="showcase" aria-label="Go to Showcase landing">Showcase</button>
           </div>
         </div>
       </div>
@@ -244,13 +245,14 @@
             <path d="M18 6L6 18M6 6l12 12"/>
           </svg>
         </button>
-        <div class="artwork-popup-image-container">
-          <img class="artwork-popup-image" id="artwork-image" src="" alt="Artwork">
+        <div class="artwork-popup-media-scroll">
+          <div class="artwork-media-stack" id="artwork-media-stack"></div>
         </div>
-        <div class="artwork-popup-info">
+        <div class="artwork-popup-info artwork-popup-text-scroll">
           <h2 class="artwork-popup-title" id="artwork-title">Artwork Title</h2>
           <p class="artwork-popup-artist" id="artwork-artist">By Artist Name</p>
-          <p class="artwork-popup-description" id="artwork-description">Description of the artwork.</p>
+          <div class="artwork-popup-header-rule" aria-hidden="true"></div>
+          <div class="artwork-popup-description" id="artwork-description"></div>
         </div>
       </div>
     </div>

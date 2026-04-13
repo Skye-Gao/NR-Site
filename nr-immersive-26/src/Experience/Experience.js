@@ -16,6 +16,9 @@ import VideoPopup from './VideoPopup.js'
 import sources from './sources.js'
 import { WORLD_GROUND_LEVEL_Y, getWalkEyeWorldY } from './World/worldGroundLevel.js'
 
+/** When `true`, skip ticket + landing and start in the forest. Set `false` for the normal welcome page. */
+const SKIP_LANDING_PAGE = false
+
 let instance = null
 
 export default class Experience {
@@ -398,6 +401,37 @@ export default class Experience {
     if (this.loadingScreen) {
       this.loadingScreen.classList.add('is-hidden')
     }
+    this.applySkipLandingPageIfEnabled()
+  }
+
+  /**
+   * Skip welcome/landing: same end state as `enterExperience()` onComplete (forest walk, no GSAP).
+   */
+  applySkipLandingPageIfEnabled() {
+    if (!SKIP_LANDING_PAGE) return
+    if (this.phase !== 'landing') return
+
+    document.body.classList.remove('phase-landing')
+    document.body.classList.add('phase-forest')
+    this.phase = 'forest'
+
+    const nav = this.navigation
+    const walkLookAt = nav.targets[nav.currentTarget].position.clone()
+    const startPosition = nav.startPosition.clone()
+
+    this.camera.instance.position.copy(startPosition)
+    this.camera.instance.lookAt(walkLookAt)
+    this.camera.walkPosition.copy(startPosition)
+    this.camera.walkLookAtTarget = walkLookAt.clone()
+    this.camera.setWalkMode()
+
+    nav.enabled = true
+    nav.showForestHint()
+    nav.setNavButtonsVisible(true)
+    nav.updateTopBarCenter('default')
+    nav.updateNavArrows()
+
+    this.scheduleSideStageShaderWarmupFallback()
   }
 
   resize() {
