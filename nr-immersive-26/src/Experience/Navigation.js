@@ -78,6 +78,9 @@ export default class Navigation {
     this.panelWheelLockUntil = 0
     // Normalize Panel Talk so forward scroll advances deeper into gallery.
     this.panelWheelDirectionFactor = 1
+    this.panelProgressTooltip = null
+    this.panelCameraLift = 0.9
+    this.panelLookDownOffset = 0.7
 
     // Mouse state
     this.isDragging = false
@@ -230,6 +233,13 @@ export default class Navigation {
     this.panelProgress = document.getElementById('panel-progress')
     this.panelProgressPoints = document.getElementById('panel-progress-points')
     this.panelProgressButtons = []
+    this.panelProgressTooltip = document.getElementById('panel-progress-tooltip')
+    if (!this.panelProgressTooltip) {
+      this.panelProgressTooltip = document.createElement('div')
+      this.panelProgressTooltip.id = 'panel-progress-tooltip'
+      this.panelProgressTooltip.className = 'panel-progress-tooltip'
+      document.body.appendChild(this.panelProgressTooltip)
+    }
     if (!this.panelProgressPoints) return
 
     this.panelProgressPoints.addEventListener('click', (e) => {
@@ -243,6 +253,30 @@ export default class Navigation {
       if (index === this.panelStopIndex) return
       this.transitionToPanelStop(index)
     })
+
+    this.panelProgressPoints.addEventListener('pointermove', (e) => {
+      const btn = e.target.closest('.panel-progress-point')
+      if (!btn || !this.panelProgress?.classList.contains('is-visible')) {
+        this.hidePanelProgressTooltip()
+        return
+      }
+      this.showPanelProgressTooltip(btn, e.clientX, e.clientY)
+    })
+
+    this.panelProgressPoints.addEventListener('pointerleave', () => {
+      this.hidePanelProgressTooltip()
+    })
+
+    this.panelProgressPoints.addEventListener('focusin', (e) => {
+      const btn = e.target.closest('.panel-progress-point')
+      if (!btn) return
+      const rect = btn.getBoundingClientRect()
+      this.showPanelProgressTooltip(btn, rect.left + rect.width / 2, rect.top + rect.height / 2)
+    })
+
+    this.panelProgressPoints.addEventListener('focusout', () => {
+      this.hidePanelProgressTooltip()
+    })
   }
 
   rebuildPanelProgressStops() {
@@ -255,12 +289,14 @@ export default class Navigation {
     }
 
     const n = this.panelStops.length
-    this.panelStops.forEach((_, i) => {
+    this.panelStops.forEach((stop, i) => {
       const btn = document.createElement('button')
       btn.type = 'button'
       btn.className = 'panel-progress-point'
       btn.dataset.stopIndex = `${i}`
-      btn.setAttribute('aria-label', `Go to panel display ${i + 1}`)
+      const stopLabel = this.formatPanelStopLabel(stop, i)
+      btn.dataset.stopLabel = stopLabel
+      btn.setAttribute('aria-label', `Go to ${stopLabel.replace(/\n/g, ', ')}`)
       const pct = n === 1 ? 50 : (i / (n - 1)) * 100
       btn.style.top = `${pct}%`
       this.panelProgressPoints.appendChild(btn)
@@ -298,6 +334,46 @@ export default class Navigation {
       !hideForOverlay
 
     this.panelProgress.classList.toggle('is-visible', show)
+    if (!show) this.hidePanelProgressTooltip()
+  }
+
+  formatPanelStopLabel(stop, index) {
+    const info = stop?.eventInfo
+    if (!info) return `Panel display ${index + 1}`
+    return `${info.title}\n${info.date}\n${info.time}`
+  }
+
+  showPanelProgressTooltip(btn, x, y) {
+    if (!this.panelProgressTooltip || !btn) return
+    const label = btn.dataset.stopLabel || ''
+    if (!label) {
+      this.hidePanelProgressTooltip()
+      return
+    }
+    this.panelProgressTooltip.textContent = label
+    const tip = this.panelProgressTooltip
+    const gap = 14
+    const pad = 10
+    const tipWidth = tip.offsetWidth || 240
+    const tipHeight = tip.offsetHeight || 90
+
+    // Prefer left-of-cursor placement (panel bar is on right side of viewport).
+    let left = x - tipWidth - gap
+    if (left < pad) left = pad
+
+    let top = y - tipHeight / 2
+    const maxTop = window.innerHeight - tipHeight - pad
+    if (top < pad) top = pad
+    if (top > maxTop) top = Math.max(pad, maxTop)
+
+    tip.style.left = `${left}px`
+    tip.style.top = `${top}px`
+    this.panelProgressTooltip.classList.add('is-visible')
+  }
+
+  hidePanelProgressTooltip() {
+    if (!this.panelProgressTooltip) return
+    this.panelProgressTooltip.classList.remove('is-visible')
   }
 
   openLivestreamInfoModal() {
@@ -440,9 +516,12 @@ export default class Navigation {
     if (!panelTalk?.getGalleryStops) return
 
     this.panelLandingPosition = this.position.clone()
-    this.panelStops = panelTalk.getGalleryStops(this.panelLandingPosition)
+    this.panelStops = panelTalk.getGalleryStops(
+      this.panelLandingPosition,
+      this.getEyeYForScene('left')
+    )
     this.panelStopIndex = -1
-    this.panelLookAtOverride = this.targets.left.position.clone()
+    this.panelLookAtOverride = this.getSceneLookAt(this.targets.left.position.clone(), 'left')
     this.panelIsMoving = false
     this.panelWheelAccumulator = 0
     this.panelWheelLockUntil = 0
@@ -493,7 +572,7 @@ export default class Navigation {
   }
 
   transitionToPanelStop(nextIndex) {
-    const landingLookAt = this.targets.left.position.clone()
+    const landingLookAt = this.getSceneLookAt(this.targets.left.position.clone(), 'left')
     const startCamPos = this.camera.instance.position.clone()
     const startLookAt = (this.panelLookAtOverride || this.targets.left.position).clone()
 
@@ -506,7 +585,7 @@ export default class Navigation {
       const stop = this.panelStops[nextIndex]
       if (!stop) return
       endPos = stop.position.clone()
-      endLookAt = stop.lookAt.clone()
+      endLookAt = this.getSceneLookAt(stop.lookAt.clone(), 'left')
     }
 
     this.panelIsMoving = true
@@ -547,6 +626,19 @@ export default class Navigation {
   
   setShowcaseOrbitMode(enabled) {
     this.inShowcaseOrbit = enabled
+  }
+
+  getEyeYForScene(target = this.currentTarget) {
+    const base = getWalkEyeWorldY()
+    return target === 'left' ? base + this.panelCameraLift : base
+  }
+
+  getSceneLookAt(lookAt, target = this.currentTarget) {
+    if (!lookAt) return lookAt
+    if (target !== 'left') return lookAt
+    const next = lookAt.clone()
+    next.y -= this.panelLookDownOffset
+    return next
   }
 
   updateTopBarCenter(scene) {
@@ -690,28 +782,25 @@ export default class Navigation {
       !this.welcomeShown &&
       (this.currentTarget === 'left' || this.currentTarget === 'right')
     const inOrbit = this.inExhibitionOrbit || this.inShowcaseOrbit
-    const inTreeHubLanding =
-      exp.phase === 'tree' &&
-      this.inTreeHub &&
-      !this.inExhibitionOrbit &&
-      !this.inShowcaseOrbit
+    const inTreePhase = exp.phase === 'tree'
     const sec = exp.sections
-    const treeHubEntryModalOpen =
-      inTreeHubLanding &&
+    const treeEntryModalOpen =
+      inTreePhase &&
       sec &&
       (sec.exhibitionEntry?.classList.contains('is-visible') ||
         sec.showcaseEntry?.classList.contains('is-visible'))
+    const overviewVisible = this.exhibitionOverview?.classList.contains('is-visible')
     const hideForOverlay =
       this.exitConfirmationShown ||
       this.welcomeShown ||
-      this.exhibitionOverviewShown ||
+      overviewVisible ||
       this.isSceneTransitioning ||
       exp.isTransitioning ||
       this.experience.sections?.orbitTransitioning
     const show =
       (inSideScene ||
         inOrbit ||
-        (inTreeHubLanding && !treeHubEntryModalOpen)) &&
+        (inTreePhase && !treeEntryModalOpen)) &&
       !hideForOverlay
     btn.classList.toggle('is-visible', show)
   }
@@ -734,12 +823,13 @@ export default class Navigation {
   onExitConfirm() {
     this.closeLivestreamInfoModal()
 
-    // Tree hub uses full tree -> forest transition
-    if (this.inTreeHub) {
+    // Any tree-mode context (hub, focus scroll, exhibition/showcase orbit) exits to forest.
+    if (this.experience.phase === 'tree') {
       this.hideExitConfirmation()
       this.isAtExitPoint = false
       this.inScene = false
       this.exitTreeHub()
+      this.clearPanelTalkStops()
       this.mouseLookStrength = this.defaultMouseLookStrength
       this.experience.transitionToForest()
       return
@@ -1176,12 +1266,12 @@ export default class Navigation {
       const finalNavPosition = this.startPosition.clone().add(
         dirToTarget.multiplyScalar(this.approachDistance)
       )
-      finalNavPosition.y = getWalkEyeWorldY()
+      finalNavPosition.y = this.getEyeYForScene(newTarget)
       
       // The camera end position IS the final nav position (walk mode copies position directly)
       const endCamPos = finalNavPosition.clone()
       // The camera end lookAt IS the target object position
-      const endLookAt = targetObj.position.clone()
+      const endLookAt = this.getSceneLookAt(targetObj.position.clone(), newTarget)
       
       // Capture current camera state as the start
       const startCamPos = this.camera.instance.position.clone()
@@ -1350,7 +1440,7 @@ export default class Navigation {
     }
 
     // Keep at eye height (startPosition Y stays in sync for distance / tree hub math)
-    const eyeY = getWalkEyeWorldY()
+    const eyeY = this.getEyeYForScene(this.currentTarget)
     this.startPosition.y = eyeY
     this.position.y = eyeY
     this.targetPosition.y = eyeY

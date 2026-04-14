@@ -269,7 +269,7 @@ export default class Experience {
     })
   }
 
-  dispose() {
+    dispose() {
     this.sizes.off('resize')
     this.time.off('tick')
 

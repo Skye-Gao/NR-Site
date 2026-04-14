@@ -101,11 +101,23 @@ export default class ShowcaseNodes {
     artists.forEach((a, clusterIndex) => {
       const work = (a.workTitle || '').trim()
       const displayTitle = work || a.name
-      const sharedMedia = a.media.map((m) => ({
-        file: m.file,
-        type: m.type,
-        url: galleryAssetUrl(base, a.folder, m.file),
-      }))
+      const sharedMedia = a.media.map((m) => {
+        const file = m.file || m.label || m.url || ''
+        if (m.url) {
+          return {
+            file,
+            type: m.type,
+            url: m.url,
+            thumbnailUrl: m.thumbnailUrl || null,
+          }
+        }
+        return {
+          file,
+          type: m.type,
+          url: galleryAssetUrl(base, a.folder, m.file),
+          thumbnailUrl: null,
+        }
+      })
       const clusterSize = a.media.length
       const statement = (a.artistStatement || '').replace(/\r\n/g, '\n').trim()
       const bio = (a.bio || '').replace(/\r\n/g, '\n').trim()
@@ -113,11 +125,14 @@ export default class ShowcaseNodes {
       const planeH = clusterSize > 3 ? 2.35 : 2.65
 
       a.media.forEach((m, indexInCluster) => {
-        const url = galleryAssetUrl(base, a.folder, m.file)
+        const file = m.file || m.label || m.url || ''
+        const url = m.url || galleryAssetUrl(base, a.folder, m.file)
         let image = null
         let videoPosterUrl = null
+        let youtubePosterUrl = null
         if (m.type === 'image') image = url
         else if (m.type === 'video') videoPosterUrl = url
+        else if (m.type === 'youtube') youtubePosterUrl = m.thumbnailUrl || null
 
         flat.push({
           id: ++nid,
@@ -125,12 +140,13 @@ export default class ShowcaseNodes {
           clusterIndex,
           indexInCluster,
           clusterSize,
-          primaryFile: m.file,
+          primaryFile: file,
           primaryType: m.type,
           title: displayTitle,
           artist: a.name,
           image,
           videoPosterUrl,
+          youtubePosterUrl,
           media: sharedMedia,
           artistStatement: statement,
           bio,
@@ -292,8 +308,9 @@ export default class ShowcaseNodes {
       let videoEl = null
       let videoTex = null
 
-      if (data.image) {
-        const texture = this.textureLoader.load(data.image)
+      if (data.image || data.youtubePosterUrl) {
+        const previewUrl = data.image || data.youtubePosterUrl
+        const texture = this.textureLoader.load(previewUrl)
         texture.colorSpace = THREE.SRGBColorSpace
         material = new THREE.MeshBasicMaterial({
           map: texture,
@@ -487,19 +504,25 @@ export default class ShowcaseNodes {
           iframe.title = formatMediaLabel(item.file)
           iframe.src = item.url
           block.appendChild(iframe)
+        } else if (item.type === 'youtube') {
+          const iframe = document.createElement('iframe')
+          iframe.className = 'artwork-popup-media-item artwork-popup-media-youtube'
+          iframe.title = formatMediaLabel(item.file)
+          iframe.src = item.url
+          iframe.allow =
+            'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share'
+          iframe.referrerPolicy = 'strict-origin-when-cross-origin'
+          iframe.allowFullscreen = true
+          block.appendChild(iframe)
         }
         this.popupMediaStack.appendChild(block)
       }
     }
 
     if (this.popupTitle) this.popupTitle.textContent = data.title
-    if (this.popupArtist) this.popupArtist.textContent = 'Natural Resonance · All We Can Save · Roots'
+    if (this.popupArtist) this.popupArtist.textContent = data.artist || ''
     if (this.popupDescription) {
       this.popupDescription.innerHTML = ''
-      const artistLine = document.createElement('p')
-      artistLine.className = 'artwork-popup-text-intro'
-      artistLine.textContent = data.artist
-      this.popupDescription.appendChild(artistLine)
       this.appendArtistTextSection(this.popupDescription, 'Statement of work', data.artistStatement, {
         dividerAfter: true,
       })

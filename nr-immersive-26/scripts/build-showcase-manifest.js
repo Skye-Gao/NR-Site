@@ -24,6 +24,18 @@ const FOLDER_TO_CSV_NAME = {
   'Helena Jalenka': 'Helena Jalanka',
 }
 
+/** Optional external media per folder (for oversized/off-repo files). */
+const EXTERNAL_MEDIA_BY_FOLDER = {
+  'Jordan Temchak': [
+    {
+      type: 'youtube',
+      label: 'Viola Bottom (YouTube)',
+      url: 'https://www.youtube.com/embed/xkjG8YkLaRs',
+      thumbnailUrl: 'https://img.youtube.com/vi/xkjG8YkLaRs/hqdefault.jpg',
+    },
+  ],
+}
+
 function extOf(name) {
   const i = name.lastIndexOf('.')
   return i >= 0 ? name.slice(i).toLowerCase() : ''
@@ -170,22 +182,24 @@ for (const folder of listArtistFolders()) {
     file,
     type: typeForFile(file),
   }))
+  const externalMedia = EXTERNAL_MEDIA_BY_FOLDER[folder] || []
+  const combinedMedia = [...media, ...externalMedia]
 
-  const firstImage = media.find((m) => m.type === 'image')
+  const firstImage = combinedMedia.find((m) => m.type === 'image')
   const text = artistTextByKey.get(csvKeyForFolder(folder)) || {
     work: '',
     artistStatement: '',
     bio: '',
   }
 
-  if (media.length === 0) continue
+  if (combinedMedia.length === 0) continue
 
   artists.push({
     folder,
     name: folder,
     workTitle: text.work,
-    posterFile: firstImage ? firstImage.file : null,
-    media,
+    posterFile: firstImage?.file || null,
+    media: combinedMedia,
     artistStatement: text.artistStatement,
     bio: text.bio,
   })

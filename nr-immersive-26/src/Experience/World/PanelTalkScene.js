@@ -11,6 +11,60 @@ const PANEL_SCREEN_LATERAL_SCALE = 0.6
 /** Depth along the walk path; >1 spreads screens farther apart in the forward direction. */
 const PANEL_SCREEN_DEPTH_SCALE = 0.6 * 1.35
 
+const PANEL_TALK_EVENTS = [
+  {
+    title: 'Community Spotlight',
+    date: 'Monday 13th April',
+    time: '9am PST / 12pm EST / 5pm GMT'
+  },
+  {
+    title: 'Interspecies Music: On the Nature of Music and the Music of Nature',
+    date: 'Friday 17th April',
+    time: '9am PST / 12pm EST / 5pm GMT'
+  },
+  {
+    title: 'The Nature Delusion - why we can\'t fix the world without fixing ourselves',
+    date: 'Sunday 19th April',
+    time: '10am PST / 1pm EST / 6pm GMT'
+  },
+  {
+    title: 'Panel Discussion - Youth Activism',
+    date: 'Monday 20th April',
+    time: '9am PST / 12pm EST / 5pm GMT'
+  },
+  {
+    title: 'Panel Discussion - Healing & Resilience through nature’s wisdom',
+    date: 'Tuesday 21st April',
+    time: '9am PST / 12pm EST / 5pm GMT'
+  },
+  {
+    title: 'Panel Discussion - Rights of Nature',
+    date: 'Wednesday 22nd April - EARTH DAY!',
+    time: '9am PST / 12pm EST / 5pm GMT'
+  },
+  {
+    title: 'Community Spotlight',
+    date: 'Friday 24th April',
+    time: '9am PST / 12pm EST / 5pm GMT'
+  },
+  {
+    title: 'Panel Discussion - Founders Discussion',
+    date: 'Sunday 26th April',
+    time: '9am PST / 12pm EST / 5pm GMT'
+  }
+]
+
+const PANEL_SCREEN_LAYOUT = [
+  { depth: 2, lateral: -7.0, height: 3.0, width: 6, aspect: 16 / 9 },
+  { depth: 12, lateral: 8.0, height: 3.2, width: 6.5, aspect: 16 / 9 },
+  { depth: 22, lateral: -10.0, height: 3.0, width: 6, aspect: 16 / 9 },
+  { depth: 32, lateral: 7.0, height: 3.4, width: 7, aspect: 16 / 9 },
+  { depth: 42, lateral: -9.0, height: 3.0, width: 6, aspect: 16 / 9 },
+  { depth: 52, lateral: 10.0, height: 3.2, width: 6.5, aspect: 16 / 9 },
+  { depth: 62, lateral: -2.0, height: 3.3, width: 7, aspect: 16 / 9 },
+  { depth: 72, lateral: 6.0, height: 3.3, width: 7, aspect: 16 / 9 }
+]
+
 export default class PanelTalkScene {
   constructor() {
     this.experience = new Experience()
@@ -48,17 +102,10 @@ export default class PanelTalkScene {
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
+      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     ]
 
-    this.videoTitles = [
-      'Panel Talk 1',
-      'Panel Talk 2',
-      'Panel Talk 3',
-      'Panel Talk 4',
-      'Panel Talk 5',
-      'Panel Talk 6',
-      'Panel Talk 7',
-    ]
+    this.videoTitles = PANEL_TALK_EVENTS.map((eventInfo) => eventInfo.title)
 
     // Approach direction: user walks from forest center toward scene
     const viewerDir = this.position.clone().negate().normalize()
@@ -69,18 +116,10 @@ export default class PanelTalkScene {
     // Right = perpendicular to forward (from the walker's perspective)
     const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize()
 
-    // 7 screens arranged front-to-back along the walk path
+    // 8 screens arranged front-to-back along the walk path
     // depth = distance along forward from the entry edge
     // lateral = offset to left(-) / right(+)
-    const screenLayout = [
-      { depth: 2,  lateral: -7.0,  height: 3.0, width: 6,   aspect: 16/9 },
-      { depth: 12, lateral:  8.0,  height: 3.2, width: 6.5, aspect: 16/9 },
-      { depth: 22, lateral: -10.0, height: 3.0, width: 6,   aspect: 16/9 },
-      { depth: 32, lateral:  7.0,  height: 3.4, width: 7,   aspect: 16/9 },
-      { depth: 42, lateral: -9.0,  height: 3.0, width: 6,   aspect: 16/9 },
-      { depth: 52, lateral:  10.0, height: 3.2, width: 6.5, aspect: 16/9 },
-      { depth: 62, lateral: -2.0,  height: 3.3, width: 7,   aspect: 16/9 },
-    ]
+    const screenLayout = PANEL_SCREEN_LAYOUT
 
     const entryLocal = this.viewerPoint.clone()
 
@@ -104,7 +143,9 @@ export default class PanelTalkScene {
         videoIndex: i
       }
 
-      this.createVideoScreen(config, videoSources[i], this.videoTitles[i], posterUrl)
+      const eventInfo = PANEL_TALK_EVENTS[i] || null
+      const videoSrc = videoSources[i] || videoSources[0]
+      this.createVideoScreen(config, videoSrc, eventInfo, posterUrl)
     })
 
     new THREE.TextureLoader().load(
@@ -134,7 +175,8 @@ export default class PanelTalkScene {
     )
   }
 
-  createVideoScreen(config, videoSrc, title = 'Video', posterUrl = '') {
+  createVideoScreen(config, videoSrc, eventInfo = null, posterUrl = '') {
+    const title = eventInfo?.title || 'Panel Talk'
     // Create video element (texture drives popup; mesh stays on shared poster)
     const video = document.createElement('video')
     video.src = videoSrc
@@ -178,6 +220,7 @@ export default class PanelTalkScene {
 
     screen.userData.videoSrc = videoSrc
     screen.userData.title = title
+    screen.userData.eventInfo = eventInfo
 
     this.registerScreenWhenReady(screen, videoSrc, title)
 
@@ -225,34 +268,79 @@ export default class PanelTalkScene {
     screen.add(backing)
 
     // Add label below screen
-    this.addScreenLabel(screen, config)
+    this.addScreenLabel(screen, config, eventInfo)
   }
 
-  addScreenLabel(screen, config) {
+  wrapLabelText(ctx, text, maxWidth) {
+    if (!text) return []
+    const words = text.split(/\s+/)
+    const lines = []
+    let current = ''
+    words.forEach((word) => {
+      const probe = current ? `${current} ${word}` : word
+      if (ctx.measureText(probe).width <= maxWidth || !current) {
+        current = probe
+      } else {
+        lines.push(current)
+        current = word
+      }
+    })
+    if (current) lines.push(current)
+    return lines
+  }
+
+  addScreenLabel(screen, config, eventInfo = null) {
     // Create a canvas for the label
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
-    canvas.width = 512
-    canvas.height = 64
+    canvas.width = 1024
+    canvas.height = 230
     
     ctx.fillStyle = 'transparent'
     ctx.fillRect(0, 0, canvas.width, canvas.height)
-    
-    ctx.font = '24px Arial'
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'
+
+    const titleText = eventInfo?.title || 'Panel discussion'
+    const dateText = eventInfo?.date || ''
+    const timeText = eventInfo?.time || ''
+
+    ctx.font = '600 40px Outfit, Inter, Arial, sans-serif'
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)'
     ctx.textAlign = 'center'
-    ctx.fillText('Film title/author/information', canvas.width / 2, 40)
-    
+    ctx.textBaseline = 'middle'
+    const maxTextWidth = canvas.width * 0.92
+    const titleLines = this.wrapLabelText(ctx, titleText, maxTextWidth)
+
+    let y = 58
+    titleLines.forEach((line) => {
+      ctx.fillText(line, canvas.width / 2, y)
+      y += 46
+    })
+
+    if (dateText) {
+      ctx.font = '500 30px Outfit, Inter, Arial, sans-serif'
+      ctx.fillStyle = 'rgba(226, 238, 255, 0.88)'
+      ctx.fillText(dateText, canvas.width / 2, y + 16)
+      y += 50
+    }
+
+    if (timeText) {
+      ctx.font = '500 27px Outfit, Inter, Arial, sans-serif'
+      ctx.fillStyle = 'rgba(185, 204, 218, 0.86)'
+      ctx.fillText(timeText, canvas.width / 2, y + 14)
+    }
+
     const labelTexture = new THREE.CanvasTexture(canvas)
-    const labelGeometry = new THREE.PlaneGeometry(config.size.width * 0.8, 0.5)
+    labelTexture.colorSpace = THREE.SRGBColorSpace
+    const labelGeometry = new THREE.PlaneGeometry(config.size.width * 1.08, 1.35)
     const labelMaterial = new THREE.MeshBasicMaterial({
       map: labelTexture,
       transparent: true,
-      side: THREE.DoubleSide
+      side: THREE.DoubleSide,
+      toneMapped: false
     })
     
     const label = new THREE.Mesh(labelGeometry, labelMaterial)
-    label.position.y = -config.size.height / 2 - 0.4
+    label.position.y = -config.size.height / 2 - 0.86
     screen.add(label)
   }
 
@@ -298,7 +386,7 @@ export default class PanelTalkScene {
     })
   }
 
-  getGalleryStops(entryWorldPosition) {
+  getGalleryStops(entryWorldPosition, cameraEyeY = getWalkEyeWorldY()) {
     if (!this.screens.length) return []
 
     this.group.updateMatrixWorld(true)
@@ -314,12 +402,13 @@ export default class PanelTalkScene {
       // "In front of screen" means between the screen and the forest-side viewer direction.
       const toViewer = new THREE.Vector3().subVectors(viewerWorldPoint, screenWorld).normalize()
       const stopPos = screenWorld.clone().add(toViewer.multiplyScalar(stopDistance))
-      stopPos.y = getWalkEyeWorldY()
+      stopPos.y = cameraEyeY
 
       stops.push({
         index,
         position: stopPos,
-        lookAt: new THREE.Vector3(screenWorld.x, screenWorld.y, screenWorld.z)
+        lookAt: new THREE.Vector3(screenWorld.x, screenWorld.y, screenWorld.z),
+        eventInfo: screen.userData?.eventInfo || null
       })
     })
 
