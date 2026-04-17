@@ -79,6 +79,18 @@ export default class Navigation {
     // Normalize Panel Talk so forward scroll advances deeper into gallery.
     this.panelWheelDirectionFactor = 1
     this.panelProgressTooltip = null
+
+    /** Touch: 1-finger vertical pan maps to wheel-like scroll; 2-finger pinch zooms in orbit. */
+    this._touchGesture = null // null | 'undecided' | 'pan-scroll' | 'orbit'
+    this._touchStartX = 0
+    this._touchStartY = 0
+    this._touchPinchLastDist = 0
+    this._touchSlopPx = 12
+    this._touchPanScale = 1.35
+    this._touchPinchRadiusScale = 2.8
+    /** Forest walk: touch pans accumulate before emitting moveVelocity impulses (wheel stays discrete). */
+    this._touchForestWalkAccum = 0
+    this._touchTreeHubAccum = 0
     this.panelCameraLift = 0.9
     this.panelLookDownOffset = 0.7
 
@@ -1082,31 +1094,208 @@ export default class Navigation {
     }
   }
 
-  onTouchStart(event) {
-    if (event.touches.length === 1) {
-      this.isDragging = true
-      this.dragAccumulatedX = 0
-      this.previousMouseX = event.touches[0].clientX
-      this.previousMouseY = event.touches[0].clientY
+  shouldIgnoreWheelScrollTarget(target) {
+    return !!target?.closest?.(
+      '.artwork-popup.is-visible .artwork-popup-media-scroll, .artwork-popup.is-visible .artwork-popup-text-scroll'
+    )
+  }
+
+  /** True when touch should not start a scene gesture (buttons, popups, forms). */
+  isTouchOnInteractiveUI(target) {
+    return !!target?.closest?.(
+      [
+        'button',
+        'a',
+        'input',
+        'textarea',
+        'select',
+        'label',
+        '.btn',
+        '.nav-scene-btn',
+        '.tree-hub-btn',
+        '.back-button',
+        '.scroll-label-btn',
+        '.panel-progress-point',
+        '.exit-to-forest-btn',
+        '.livestream-info-btn',
+        '.top-bar',
+        '.scene-welcome',
+        '.exhibition-entry',
+        '.showcase-entry',
+        '.exhibition-overview',
+        '.exit-confirmation',
+        '.artwork-popup',
+        '.video-popup',
+        '.landing-page',
+        '.loading-screen',
+      ].join(', ')
+    )
+  }
+
+  getTouchDistance(touches) {
+    if (touches.length < 2) return 0
+    const dx = touches[0].clientX - touches[1].clientX
+    const dy = touches[0].clientY - touches[1].clientY
+    return Math.hypot(dx, dy)
+  }
+
+  /**
+   * Same movement semantics as the mouse wheel (forest walk, tree scroll, panel stops, orbit zoom).
+   * @param {{ smoothTouch?: boolean }} opts smoothTouch: coalesce small per-frame deltas (touch pan)
+   * @returns {boolean} true if the delta was consumed (caller may preventDefault on touch).
+   */
+  applyWheelLikeDelta(deltaY, event = null, opts = {}) {
+    if (event?.target && this.shouldIgnoreWheelScrollTarget(event.target)) return false
+
+    if (this.inExhibitionOrbit) {
+      const deltaRadius = deltaY * this.exhibitionZoomSensitivity
+      this.camera.updateExhibitionOrbit(0, deltaRadius, 0)
+      return true
     }
+    if (this.inShowcaseOrbit) {
+      const deltaRadius = deltaY * this.exhibitionZoomSensitivity
+      this.camera.updateShowcaseOrbit(0, deltaRadius, 0)
+      return true
+    }
+    if (this.experience.phase === 'forest' && this.currentTarget === 'left' && this.inScene) {
+      this.movePanelTalkByScroll(deltaY)
+      return true
+    }
+    if (this.inTreeHub) {
+      if (opts.smoothTouch) {
+        this._touchTreeHubAccum += deltaY
+        const emit = 10
+        if (Math.abs(this._touchTreeHubAccum) < emit) return true
+        const burst = this._touchTreeHubAccum
+        this._touchTreeHubAccum = 0
+        this.handleTreeHubScroll(burst)
+      } else {
+        this.handleTreeHubScroll(deltaY)
+      }
+      return true
+    }
+    if (
+      this.experience.phase === 'forest' &&
+      !this.isSceneTransitioning &&
+      !this.exhibitionOverviewShown
+    ) {
+      if (opts.smoothTouch) {
+        this._touchForestWalkAccum += deltaY
+        const threshold = 26
+        while (this._touchForestWalkAccum > threshold) {
+          this.moveVelocity += this.moveSpeed
+          this._touchForestWalkAccum -= threshold
+        }
+        while (this._touchForestWalkAccum < -threshold) {
+          this.moveVelocity -= this.moveSpeed
+          this._touchForestWalkAccum += threshold
+        }
+      } else {
+        const scrollDelta = Math.sign(deltaY) * this.moveSpeed
+        this.moveVelocity += scrollDelta
+      }
+      return true
+    }
+    if (this.experience.phase === 'tree') {
+      this.targetScrollProgress -= deltaY * this.scrollSensitivity
+      this.targetScrollProgress = THREE.MathUtils.clamp(this.targetScrollProgress, 0, 1)
+      return true
+    }
+    return false
+  }
+
+  onTouchStart(event) {
+    if (this.exitConfirmationShown) return
+    if (this.isTouchOnInteractiveUI(event.target)) return
+
+    if (event.touches.length === 2 && (this.inExhibitionOrbit || this.inShowcaseOrbit)) {
+      this._touchGesture = 'pinch'
+      this._touchPinchLastDist = this.getTouchDistance(event.touches)
+      this.isDragging = false
+      return
+    }
+
+    if (event.touches.length !== 1) return
+
+    const t = event.touches[0]
+    this._touchGesture =
+      this.inExhibitionOrbit || this.inShowcaseOrbit ? 'orbit' : 'undecided'
+    this._touchStartX = t.clientX
+    this._touchStartY = t.clientY
+    this.isDragging = true
+    this.dragAccumulatedX = 0
+    this.previousMouseX = t.clientX
+    this.previousMouseY = t.clientY
   }
 
   onTouchMove(event) {
-    if (!this.isDragging || event.touches.length !== 1) return
-    if (this.exitConfirmationShown) return  // Block rotation when exit confirmation is shown
+    if (this.exitConfirmationShown) return
 
-    const deltaX = event.touches[0].clientX - this.previousMouseX
-    const deltaY = event.touches[0].clientY - this.previousMouseY
-    
+    if (event.touches.length === 2 && (this.inExhibitionOrbit || this.inShowcaseOrbit)) {
+      if (this._touchGesture !== 'pinch') {
+        this._touchGesture = 'pinch'
+        this.isDragging = false
+      }
+      const d = this.getTouchDistance(event.touches)
+      if (this._touchPinchLastDist <= 0) this._touchPinchLastDist = d
+      const dd = d - this._touchPinchLastDist
+      this._touchPinchLastDist = d
+      const deltaRadius = dd * this.exhibitionZoomSensitivity * this._touchPinchRadiusScale
+      if (this.inExhibitionOrbit) this.camera.updateExhibitionOrbit(0, deltaRadius, 0)
+      else this.camera.updateShowcaseOrbit(0, deltaRadius, 0)
+      event.preventDefault()
+      return
+    }
+
+    if (event.touches.length !== 1) return
+    if (!this.isDragging) return
+
+    const t = event.touches[0]
+    const x = t.clientX
+    const y = t.clientY
+    const deltaX = x - this.previousMouseX
+    const deltaY = y - this.previousMouseY
+
+    if (this._touchGesture === 'undecided') {
+      const odx = Math.abs(x - this._touchStartX)
+      const ody = Math.abs(y - this._touchStartY)
+      if (odx + ody >= this._touchSlopPx) {
+        const verticalDominant = ody > odx * 1.05
+        this._touchGesture = verticalDominant ? 'pan-scroll' : 'orbit'
+      } else {
+        return
+      }
+    }
+
+    if (this._touchGesture === 'pan-scroll') {
+      const consumed = this.applyWheelLikeDelta(deltaY * this._touchPanScale, event, {
+        smoothTouch: true,
+      })
+      if (consumed) event.preventDefault()
+      this.previousMouseX = x
+      this.previousMouseY = y
+      return
+    }
+
+    // orbit-style drag (1 finger)
     if (this.inExhibitionOrbit) {
-      const deltaAngle = -deltaX * this.exhibitionOrbitSensitivity
-      const deltaHeight = deltaY * this.exhibitionVerticalSensitivity
-      this.camera.updateExhibitionOrbit(deltaAngle, 0, deltaHeight)
+      const dAngle = -deltaX * this.exhibitionOrbitSensitivity
+      const dHeight = deltaY * this.exhibitionVerticalSensitivity
+      this.camera.updateExhibitionOrbit(dAngle, 0, dHeight)
+      event.preventDefault()
     } else if (this.inShowcaseOrbit) {
-      const deltaAngle = -deltaX * this.exhibitionOrbitSensitivity
-      const deltaHeight = deltaY * this.exhibitionVerticalSensitivity
-      this.camera.updateShowcaseOrbit(deltaAngle, 0, deltaHeight)
-    } else if (this.experience.phase === 'forest' && !this.isSceneTransitioning && this.currentTarget === 'front') {
+      const dAngle = -deltaX * this.exhibitionOrbitSensitivity
+      const dHeight = deltaY * this.exhibitionVerticalSensitivity
+      this.camera.updateShowcaseOrbit(dAngle, 0, dHeight)
+      event.preventDefault()
+    } else if (this.experience.phase === 'tree' && !this.inTreeHub) {
+      this.focusDragDeltaX += deltaX
+      event.preventDefault()
+    } else if (
+      this.experience.phase === 'forest' &&
+      !this.isSceneTransitioning &&
+      this.currentTarget === 'front'
+    ) {
       this.dragAccumulatedX += deltaX
       if (this.dragAccumulatedX > this.dragSwitchThreshold) {
         this.dragAccumulatedX = 0
@@ -1115,53 +1304,44 @@ export default class Navigation {
         this.dragAccumulatedX = 0
         this.switchToNextTarget('right')
       }
+      event.preventDefault()
     } else if (!this.inTreeHub) {
       this.sceneDragOffsetX += deltaX * this.sceneDragStrength * 0.01
       this.sceneDragOffsetY += deltaY * this.sceneDragStrength * 0.01
-      
       this.sceneDragOffsetX = THREE.MathUtils.clamp(this.sceneDragOffsetX, -this.sceneDragMax, this.sceneDragMax)
       this.sceneDragOffsetY = THREE.MathUtils.clamp(this.sceneDragOffsetY, -this.sceneDragMax, this.sceneDragMax)
+      event.preventDefault()
     }
-    
-    this.previousMouseX = event.touches[0].clientX
-    this.previousMouseY = event.touches[0].clientY
+
+    this.previousMouseX = x
+    this.previousMouseY = y
   }
 
   onTouchEnd(event) {
-    this.isDragging = false
+    if (event.touches.length === 0) {
+      this.isDragging = false
+      this._touchGesture = null
+      this._touchPinchLastDist = 0
+      this._touchForestWalkAccum = 0
+      this._touchTreeHubAccum = 0
+    }
+    if (event.touches.length === 1 && this._touchGesture === 'pinch') {
+      this._touchGesture = 'undecided'
+      this._touchPinchLastDist = 0
+      const t = event.touches[0]
+      this._touchStartX = t.clientX
+      this._touchStartY = t.clientY
+      this.previousMouseX = t.clientX
+      this.previousMouseY = t.clientY
+      this.isDragging = true
+    }
   }
 
   onWheel(event) {
-    if (
-      event.target.closest?.(
-        '.artwork-popup.is-visible .artwork-popup-media-scroll, .artwork-popup.is-visible .artwork-popup-text-scroll'
-      )
-    ) {
-      return
-    }
+    if (this.shouldIgnoreWheelScrollTarget(event.target)) return
 
     event.preventDefault()
-
-    if (this.inExhibitionOrbit) {
-      // Exhibition orbit mode - scroll to zoom in/out
-      const deltaRadius = event.deltaY * this.exhibitionZoomSensitivity
-      this.camera.updateExhibitionOrbit(0, deltaRadius, 0)
-    } else if (this.inShowcaseOrbit) {
-      // Showcase orbit mode - scroll to zoom in/out
-      const deltaRadius = event.deltaY * this.exhibitionZoomSensitivity
-      this.camera.updateShowcaseOrbit(0, deltaRadius, 0)
-    } else if (this.experience.phase === 'forest' && this.currentTarget === 'left' && this.inScene) {
-      this.movePanelTalkByScroll(event.deltaY)
-    } else if (this.inTreeHub) {
-      this.handleTreeHubScroll(event.deltaY)
-    } else if (this.experience.phase === 'forest' && !this.isSceneTransitioning && !this.exhibitionOverviewShown) {
-      const scrollDelta = Math.sign(event.deltaY) * this.moveSpeed
-      this.moveVelocity += scrollDelta
-
-    } else if (this.experience.phase === 'tree') {
-      this.targetScrollProgress -= event.deltaY * this.scrollSensitivity
-      this.targetScrollProgress = THREE.MathUtils.clamp(this.targetScrollProgress, 0, 1)
-    }
+    this.applyWheelLikeDelta(event.deltaY, event)
   }
 
   handleTreeHubScroll(deltaY) {

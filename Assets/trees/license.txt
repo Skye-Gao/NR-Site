@@ -1,0 +1,11 @@
+Model Information:
+* title:	Trees
+* source:	https://sketchfab.com/3d-models/trees-ef55aa6174344782b58a5dcbd0763301
+* author:	Khoa Nguyen (https://sketchfab.com/ngdkh)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Trees" (https://sketchfab.com/3d-models/trees-ef55aa6174344782b58a5dcbd0763301) by Khoa Nguyen (https://sketchfab.com/ngdkh) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

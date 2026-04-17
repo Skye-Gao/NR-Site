@@ -786,7 +786,7 @@ body.phase-showcase-orbit .scene-hint {
   right: max(24px, env(safe-area-inset-right, 0px));
   /* Match .nav-scene-btn, .scene-hint, .back-button (bottom: 30px) */
   bottom: calc(30px + env(safe-area-inset-bottom, 0px));
-  z-index: 40;
+  z-index: 70;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -834,7 +834,7 @@ body.phase-showcase-orbit .scene-hint {
   position: fixed;
   left: max(24px, env(safe-area-inset-left, 0px));
   bottom: calc(30px + env(safe-area-inset-bottom, 0px));
-  z-index: 40;
+  z-index: 70;
   width: 46px;
   height: 46px;
   padding: 0;
@@ -2317,5 +2317,105 @@ iframe.artwork-popup-media-youtube {
 
   .panel-progress-points {
     inset: 6px 0;
+  }
+
+  /* Bottom scene controls: keep clear of home indicator + thumb reach */
+  .nav-scene-btn {
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    padding: 8px 12px;
+    max-width: min(168px, calc(50vw - 14px));
+    gap: 6px;
+    flex-wrap: wrap;
+    border-radius: 22px;
+  }
+
+  .nav-scene-btn-left {
+    left: max(10px, env(safe-area-inset-left, 0px));
+  }
+
+  .nav-scene-btn-right {
+    right: max(10px, env(safe-area-inset-right, 0px));
+  }
+
+  .nav-scene-or {
+    display: none;
+  }
+
+  .nav-scene-key {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    font-size: 11px;
+  }
+
+  .nav-scene-text {
+    font-size: 11px;
+    white-space: normal;
+    line-height: 1.25;
+  }
+
+  .exit-to-forest-btn {
+    right: max(10px, env(safe-area-inset-right, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    max-width: min(300px, calc(100vw - 56px));
+    padding: 10px 14px;
+    font-size: 12px;
+  }
+
+  .livestream-info-btn {
+    left: max(10px, env(safe-area-inset-left, 0px));
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    width: 44px;
+    height: 44px;
+  }
+
+  .forest-hint,
+  .scene-hint {
+    bottom: calc(96px + env(safe-area-inset-bottom, 0px));
+    padding: 0 12px;
+    max-width: calc(100vw - 24px);
+  }
+
+  .tree-hub-controls {
+    top: 42%;
+    width: calc(100vw - 32px);
+    max-width: 420px;
+  }
+
+  .tree-hub-btn {
+    min-width: 0;
+    width: 100%;
+    padding: 10px 14px;
+    font-size: 12px;
+    gap: 8px;
+  }
+
+  .tree-hub-arrow {
+    width: 22px;
+    height: 22px;
+  }
+
+  .back-button {
+    bottom: calc(22px + env(safe-area-inset-bottom, 0px));
+    max-width: calc(100vw - 32px);
+    padding: 10px 16px;
+    font-size: 12px;
+  }
+
+  .panel-progress-tooltip {
+    max-width: min(300px, 78vw);
+    font-size: 11px;
+    padding: 8px 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-scene-btn {
+    max-width: min(152px, calc(50vw - 12px));
+    padding: 7px 10px;
+  }
+
+  .nav-scene-text {
+    font-size: 10px;
   }
 }
