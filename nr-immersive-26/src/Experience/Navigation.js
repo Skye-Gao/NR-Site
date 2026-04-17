@@ -187,6 +187,14 @@ export default class Navigation {
     // Bottom hint elements
     this.forestHint = document.getElementById('forest-hint')
     this.sceneHint = document.getElementById('scene-hint')
+    if (this.forestHint) {
+      this.forestHint.addEventListener('click', () => this.onForestHintActivate())
+      this.forestHint.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' && e.key !== ' ') return
+        e.preventDefault()
+        this.onForestHintActivate()
+      })
+    }
     
     // Scene welcome popup
     this.sceneWelcome = document.getElementById('scene-welcome')
@@ -675,6 +683,24 @@ export default class Navigation {
     if (this.sceneHint) {
       this.sceneHint.classList.remove('is-visible')
     }
+  }
+
+  onForestHintActivate() {
+    if (!this.enabled || !this.forestHint) return
+    const exp = this.experience
+    if (
+      exp.phase !== 'forest' ||
+      this.currentTarget !== 'front' ||
+      this.inScene ||
+      this.isSceneTransitioning ||
+      exp.isTransitioning ||
+      this.welcomeShown ||
+      this.exitConfirmationShown ||
+      this.exhibitionOverviewShown
+    ) {
+      return
+    }
+    exp.transitionToTree(this.treeLandingScrollProgress)
   }
 
   showSceneHint() {

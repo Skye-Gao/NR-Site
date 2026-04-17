@@ -3,7 +3,10 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, viewport-fit=cover"
+    />
     <title>Natural Resonance 2026 Film Festival</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,6 +18,8 @@
         height: 100%;
         overflow: hidden;
         background: #0a0a0a;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
       }
       body.app-booting > :not(.loading-screen) {
         visibility: hidden !important;
@@ -126,7 +131,13 @@
     <!-- Main Experience UI -->
     <div id="ui">
       <!-- Forest center scroll hint -->
-      <div class="forest-hint" id="forest-hint">
+      <div
+        class="forest-hint"
+        id="forest-hint"
+        role="button"
+        tabindex="0"
+        aria-label="Scroll or click to enter Gallery"
+      >
         <div class="hint-row">
           <span class="hint-icon scroll-icon">
             <svg width="14" height="28" viewBox="0 0 14 28" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -135,7 +146,7 @@
               <line x1="7" y1="14" x2="7" y2="17"/>
             </svg>
           </span>
-          <span class="hint-text">Scroll to enter <span class="nav-scene-name">Gallery</span></span>
+          <span class="hint-text">Scroll or click to enter <span class="nav-scene-name">Gallery</span></span>
         </div>
       </div>
 

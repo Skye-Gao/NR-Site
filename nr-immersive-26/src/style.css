@@ -21,6 +21,8 @@ html, body {
   margin: 0;
   overflow: hidden;
   background: var(--color-bg);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 #webgl {
@@ -657,8 +659,14 @@ body.phase-showcase-orbit .landing-page {
   transition: opacity 0.6s ease;
 }
 
+.forest-hint:focus-visible {
+  outline: none;
+}
+
 body.phase-forest .forest-hint {
   opacity: 1;
+  pointer-events: auto;
+  cursor: pointer;
 }
 
 body.phase-forest .forest-hint.is-hidden {
@@ -2305,6 +2313,22 @@ iframe.artwork-popup-media-youtube {
   
   .scroll-track, .scroll-labels { height: 120px; }
 
+  .scroll-track {
+    width: 6px;
+  }
+
+  .scroll-labels {
+    gap: 6px;
+  }
+
+  .scroll-label-btn {
+    padding: 6px 8px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    border-radius: 12px;
+    background: rgba(8, 18, 8, 0.48);
+  }
+
   .panel-progress {
     right: 20px;
     height: 160px;
@@ -2376,6 +2400,21 @@ iframe.artwork-popup-media-youtube {
     max-width: calc(100vw - 24px);
   }
 
+  .forest-hint .hint-row {
+    padding: 8px 12px;
+    gap: 8px;
+    border-radius: 22px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(10px);
+  }
+
+  .forest-hint .hint-text {
+    font-size: 11px;
+    white-space: normal;
+    line-height: 1.25;
+  }
+
   .tree-hub-controls {
     top: 42%;
     width: calc(100vw - 32px);
@@ -2402,6 +2441,72 @@ iframe.artwork-popup-media-youtube {
     font-size: 12px;
   }
 
+  /* Tree popups (overview/gallery/showcase entries) */
+  .exhibition-entry,
+  .showcase-entry {
+    padding: 12px;
+  }
+
+  .exhibition-entry-content {
+    box-sizing: border-box;
+    width: min(92vw, 560px);
+    max-height: min(78vh, 620px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 24px 18px;
+    border-radius: 18px;
+  }
+
+  .exhibition-entry-icon {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 16px;
+  }
+
+  .exhibition-entry-title {
+    font-size: clamp(22px, 6vw, 30px);
+    margin-bottom: 10px;
+  }
+
+  .exhibition-entry-description {
+    font-size: 14px;
+    line-height: 1.6;
+    margin-bottom: 20px;
+  }
+
+  .exhibition-entry-btn {
+    min-width: 0;
+    width: min(100%, 260px);
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
+  .showcase-entry-content {
+    width: min(calc(100vw - 24px), 760px);
+    max-height: min(76vh, 620px);
+    padding: 20px 16px;
+    border-radius: 18px;
+  }
+
+  .showcase-entry-title {
+    font-size: clamp(20px, 5.4vw, 30px);
+    margin-bottom: 10px;
+  }
+
+  .showcase-entry-description {
+    font-size: 13.5px;
+    line-height: 1.58;
+    margin-bottom: 20px;
+    max-width: 64ch;
+  }
+
+  .showcase-entry-btn {
+    min-width: 0;
+    width: min(100%, 260px);
+    padding: 12px 20px;
+    font-size: 14px;
+  }
+
   .panel-progress-tooltip {
     max-width: min(300px, 78vw);
     font-size: 11px;
@@ -2417,5 +2522,79 @@ iframe.artwork-popup-media-youtube {
 
   .nav-scene-text {
     font-size: 10px;
+  }
+
+  .forest-hint .hint-text {
+    font-size: 10px;
+  }
+
+  .tree-hub-controls {
+    width: calc(100vw - 20px);
+    top: 40%;
+  }
+
+  .tree-hub-btn {
+    padding: 9px 12px;
+    font-size: 11px;
+  }
+
+  .scroll-indicator {
+    right: 12px;
+    bottom: 16px;
+    gap: 10px;
+  }
+
+  .scroll-label-btn {
+    font-size: 9px;
+    padding: 5px 7px;
+    max-width: 84px;
+  }
+
+  .back-button {
+    width: calc(100vw - 24px);
+    justify-content: center;
+    padding: 10px 12px;
+  }
+
+  .back-button span {
+    font-size: 11px;
+  }
+
+  .exit-to-forest-btn {
+    max-width: calc(100vw - 44px);
+    padding: 9px 12px;
+    gap: 8px;
+    font-size: 11px;
+  }
+
+  .exhibition-entry-content {
+    width: calc(100vw - 16px);
+    max-height: min(82vh, 620px);
+    padding: 18px 14px;
+  }
+
+  .exhibition-entry-title {
+    font-size: clamp(20px, 7vw, 28px);
+  }
+
+  .exhibition-entry-description {
+    font-size: 13px;
+    margin-bottom: 16px;
+  }
+
+  .showcase-entry-content {
+    width: calc(100vw - 16px);
+    max-height: min(80vh, 620px);
+    padding: 16px 14px;
+  }
+
+  .showcase-entry-title {
+    font-size: clamp(19px, 6.6vw, 27px);
+  }
+
+  .showcase-entry-description {
+    font-size: 12.5px;
+    line-height: 1.54;
+    margin-bottom: 16px;
   }
 }
