@@ -96,7 +96,7 @@ export default class PanelTalkScene {
   createScreens() {
     const videoSources = [
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4',
+      'https://player.vimeo.com/video/1184192444?h=3cc5244253&title=0&byline=0&portrait=0&badge=0&autopause=0&player_id=0&app_id=58479',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
