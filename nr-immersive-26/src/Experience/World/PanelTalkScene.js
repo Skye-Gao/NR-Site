@@ -13,11 +13,6 @@ const PANEL_SCREEN_DEPTH_SCALE = 0.6 * 1.35
 
 const PANEL_TALK_EVENTS = [
   {
-    title: 'Community Spotlight',
-    date: 'Monday 13th April',
-    time: '9am PST / 12pm EST / 5pm GMT'
-  },
-  {
     title: 'Interspecies Music: On the Nature of Music and the Music of Nature',
     date: 'Friday 17th April',
     time: '9am PST / 12pm EST / 5pm GMT'
@@ -43,11 +38,6 @@ const PANEL_TALK_EVENTS = [
     time: '9am PST / 12pm EST / 5pm GMT'
   },
   {
-    title: 'Community Spotlight',
-    date: 'Friday 24th April',
-    time: '9am PST / 12pm EST / 5pm GMT'
-  },
-  {
     title: 'Panel Discussion - Founders Discussion',
     date: 'Sunday 26th April',
     time: '9am PST / 12pm EST / 5pm GMT'
@@ -56,12 +46,10 @@ const PANEL_TALK_EVENTS = [
 
 const PANEL_SCREEN_LAYOUT = [
   { depth: 2, lateral: -7.0, height: 3.0, width: 6, aspect: 16 / 9 },
-  { depth: 12, lateral: 8.0, height: 3.2, width: 6.5, aspect: 16 / 9 },
-  { depth: 22, lateral: -10.0, height: 3.0, width: 6, aspect: 16 / 9 },
-  { depth: 32, lateral: 7.0, height: 3.4, width: 7, aspect: 16 / 9 },
-  { depth: 42, lateral: -9.0, height: 3.0, width: 6, aspect: 16 / 9 },
-  { depth: 52, lateral: 10.0, height: 3.2, width: 6.5, aspect: 16 / 9 },
-  { depth: 62, lateral: -2.0, height: 3.3, width: 7, aspect: 16 / 9 },
+  { depth: 16, lateral: 8.0, height: 3.2, width: 6.5, aspect: 16 / 9 },
+  { depth: 30, lateral: -10.0, height: 3.0, width: 6, aspect: 16 / 9 },
+  { depth: 44, lateral: 7.0, height: 3.4, width: 7, aspect: 16 / 9 },
+  { depth: 58, lateral: -9.0, height: 3.0, width: 6, aspect: 16 / 9 },
   { depth: 72, lateral: 6.0, height: 3.3, width: 7, aspect: 16 / 9 }
 ]
 
@@ -95,14 +83,12 @@ export default class PanelTalkScene {
 
   createScreens() {
     const videoSources = [
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
       'https://player.vimeo.com/video/1184192444?h=3cc5244253&title=0&byline=0&portrait=0&badge=0&autopause=0&player_id=0&app_id=58479',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4',
       'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4',
-      'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4',
     ]
 
     this.videoTitles = PANEL_TALK_EVENTS.map((eventInfo) => eventInfo.title)
@@ -116,7 +102,7 @@ export default class PanelTalkScene {
     // Right = perpendicular to forward (from the walker's perspective)
     const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0, 1, 0), forward).normalize()
 
-    // 8 screens arranged front-to-back along the walk path
+    // Discussion screens arranged front-to-back along the walk path
     // depth = distance along forward from the entry edge
     // lateral = offset to left(-) / right(+)
     const screenLayout = PANEL_SCREEN_LAYOUT
